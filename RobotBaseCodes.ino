@@ -14,7 +14,7 @@ SensorFilter s2(0.2, 0.5, 0, 1, 2482, -1.033, A4);
 Vector2D boxMap = Vector2D();
 
 // Gyro stuff
-const int gyroPin = A4;
+const int gyroPin = A3;
 int sensorValue = 0;
 float gyroSupplyVoltage = 5;
 float gyroZeroVoltage = 0;      // Voltage when not rotating
@@ -24,6 +24,8 @@ float gyroRate = 0;
 float currentAngle = 0;
 unsigned long lastTime = 0;
 float desiredAngle = 0;
+float reading_middle = 0;
+float Distance = 900;
 
 double mapping[10][2];
 
@@ -43,10 +45,10 @@ double mapping[10][2];
 //Refer to Shield Pinouts.jpg for pin locations
 
 //Default motor control pins
-const byte left_front = 46;
-const byte left_rear = 47;
-const byte right_rear = 50;
-const byte right_front = 51;
+const byte left_front = 50;
+const byte left_rear = 51;
+const byte right_rear = 47;
+const byte right_front = 46;
 
 //Default ultrasonic ranging sensor pins, these pins are defined my the Shield
 const int TRIG_PIN = 48;  //48
@@ -72,7 +74,9 @@ enum State {
   CCWSPIN,
   ALIGN,
   STOP,
-  TURNTOLIGHT
+  TURNTOLIGHT,
+  DRIVETOLIGHT,
+  DRIVETOLIGHTCLOSE
 };
 
 
@@ -95,9 +99,9 @@ double speed_array[4][1];           // array of speed values for the motors
 double control_effort_array[3][1];  // array of xyz control efforts from pid controlers
 
 // CONTROL GAIN VALUES
-double kp_x = 40;
+double kp_x = 1;
 double kp_y = 60;
-double kp_z = 1;
+double kp_z = 0.4;
 double ki_z = 0;
 double kd_z = 0;
 double power_lim = 500;  // max vex motor power
@@ -139,9 +143,9 @@ void setup(void) {
   digitalWrite(TRIG_PIN, LOW);
 
   // Setup the Serial port and pointer, the pointer allows switching the debug info through the USB port(Serial) or Bluetooth port(Serial1) with ease.
-  // SerialCom = &Serial1;
-  // SerialCom->begin(115200);
-  // SerialCom->println("SETUP");
+  SerialCom = &Serial1;
+  SerialCom->begin(115200);
+  SerialCom->println("SETUP");
 
   Serial.begin(115200);
 
@@ -164,24 +168,80 @@ void setup(void) {
 
 void loop(void)  //main loop
 {
+  // forward();
 
-  float reading_left = analogRead(A8);
-  float reading_right = analogRead(A9);
-  updateAngle();
-  float error =  reading_right - reading_left;
-  desiredAngle = error;
-  do {
-        State state = TURNTOLIGHT;
-        reading_left = analogRead(A8);
-        reading_right = analogRead(A9);
-        error =  reading_right - reading_left;
-        desiredAngle = error;
-        Serial.println(error);
-        control(0, 0, 1, state);
+  // right_front_motor.writeMicroseconds(1500 + 400);
 
-      } while (abs(error) > 100);
+  // while (1) {
+    
+  //   // delay(500);
+  //   // SerialCom->println(HC_SR04_range());
+  //   // SerialCom->println(analogRead(A4)); // Short right
+  //   // SerialCom->println(analogRead(A5)); // Short left
+  //   // SerialCom->println(analogRead(A6)); // Long right
+  //   // SerialCom->println(analogRead(A7)); // Long left
+  //   // updateAngle();
+  //   // SerialCom->println(currentAngle); // Short right
+  //   // SerialCom->println(analogRead(A14)); // PT left
+  //   // SerialCom->println(analogRead(A12)); // PT mid
+  //   // SerialCom->println(analogRead(A13)); // PT right
+  //   // Serial.println(analogRead(A13)); // PT mid
+
+
+  // }
+
+  float reading_left = analogRead(A14);
+  float reading_right = analogRead(A13);
   
+  float turn_error = 900;
+  desiredAngle = turn_error;
+    // do {
+    //     State state = TURNTOLIGHT;
+        
+    //     reading_left = analogRead(A14);
+    //     reading_right = analogRead(A13);
+    //     turn_error = reading_left - reading_right;
+    //     desiredAngle = turn_error;
+       
+    //     control(0, 0, 1, state);
 
+
+    //   } while ((abs(turn_error) > 100));
+
+  do {
+        State state = DRIVETOLIGHT;
+        reading_middle = analogRead(A12);
+        reading_left = analogRead(A14);
+        reading_right = analogRead(A13);
+        turn_error = reading_left - reading_right;
+        desiredAngle = turn_error;
+        // SerialCom->print(turn_error);
+        // SerialCom->print(", ");
+        // SerialCom->println(reading_middle);
+        control(1, 0, 1, state);
+
+
+      } while ((abs(turn_error) > 100) || (reading_middle < 950));
+
+      
+    
+      do {
+        State state = DRIVETOLIGHTCLOSE;
+        Distance = HC_SR04_range();
+        reading_left = analogRead(A14);
+        reading_right = analogRead(A13);
+        turn_error = reading_left - reading_right;
+        desiredAngle = turn_error;
+        kp_x = 20;
+        SerialCom->print(turn_error);
+        SerialCom->print(", ");
+        SerialCom->println(reading_middle);
+        control(1, 0, 1, state);
+
+
+      } while ((abs(turn_error) > 100) || (Distance > 2));
+  
+  while(1);
 
   // Take readings, update global variables
   // updateAngle();
@@ -691,7 +751,17 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
       break;
     case TURNTOLIGHT:
       error_x = 0;
-      error_y = 0;  // not actually
+      error_y = 0; // not actually
+      error_z = desiredAngle;
+      break;
+    case DRIVETOLIGHT:
+      error_x = 1000-reading_middle;
+      error_y =  0; // not actually
+      error_z = desiredAngle;
+      break;
+    case DRIVETOLIGHTCLOSE:
+      error_x = Distance - 2;
+      error_y =  0; // not actually
       error_z = desiredAngle;
       break;
 
