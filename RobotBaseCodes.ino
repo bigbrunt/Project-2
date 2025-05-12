@@ -5,10 +5,10 @@
 #include "vector.h"
 
 // Define Kalman filter instance (Q, R, initial estimate, initial error covariance)
-SensorFilter l1(0.2, 0.5, 0, 1, 16705, -1.22, A9);
-SensorFilter l2(0.2, 0.5, 0, 1, 5434.6, -1.006, A5);
-SensorFilter s1(0.2, 0.5, 0, 1, 1625.2, -0.899, A8);
-SensorFilter s2(0.2, 0.5, 0, 1, 2482, -1.033, A4);
+SensorFilter lR(0.2, 0.5, 0, 1, 4246.1, -0.913, A6);
+SensorFilter lL(0.2, 0.5, 0, 1, 1432.6, -0.53, A7);
+SensorFilter sR(0.2, 0.5, 0, 1, 1817.7, -0.897, A4);
+SensorFilter sL(0.2, 0.5, 0, 1, 2200.9, -1.001, A5);
 
 // intialise the vector for the box mapping
 Vector2D boxMap = Vector2D();
@@ -25,6 +25,10 @@ float currentAngle = 0;
 unsigned long lastTime = 0;
 float desiredAngle = 0;
 float reading_middle = 0;
+float reading_right = 0;
+float reading_left = 0;
+float turn_error = 900;
+float ultraSonic = 0;
 float Distance = 900;
 
 double mapping[10][2];
@@ -49,6 +53,12 @@ const byte left_front = 50;
 const byte left_rear = 51;
 const byte right_rear = 47;
 const byte right_front = 46;
+
+//IR range sensors
+int rightShort = analogRead(A4);
+int leftShort = analogRead(A5);
+int rightLong = analogRead(A6);
+int leftLong = analogRead(A7);
 
 //Default ultrasonic ranging sensor pins, these pins are defined my the Shield
 const int TRIG_PIN = 48;  //48
@@ -76,7 +86,9 @@ enum State {
   STOP,
   TURNTOLIGHT,
   DRIVETOLIGHT,
-  DRIVETOLIGHTCLOSE
+  DRIVETOLIGHTCLOSE,
+  STRAFELEFT,
+  STRAFERIGHT
 };
 
 
@@ -168,6 +180,9 @@ void setup(void) {
 
 void loop(void)  //main loop
 {
+  
+  
+
   // forward();
 
   // right_front_motor.writeMicroseconds(1500 + 400);
@@ -176,43 +191,107 @@ void loop(void)  //main loop
     
   //   // delay(500);
   //   // SerialCom->println(HC_SR04_range());
-  //   // SerialCom->println(analogRead(A4)); // Short right
-  //   // SerialCom->println(analogRead(A5)); // Short left
-  //   // SerialCom->println(analogRead(A6)); // Long right
-  //   // SerialCom->println(analogRead(A7)); // Long left
+    // SerialCom->println(analogRead(A4)); // Short right
+    // SerialCom->println(analogRead(A5)); // Short left
+    // SerialCom->println(analogRead(A6)); // Long right
+    // SerialCom->println(analogRead(A7)); // Long left
   //   // updateAngle();
   //   // SerialCom->println(currentAngle); // Short right
   //   // SerialCom->println(analogRead(A14)); // PT left
   //   // SerialCom->println(analogRead(A12)); // PT mid
   //   // SerialCom->println(analogRead(A13)); // PT right
-  //   // Serial.println(analogRead(A13)); // PT mid
+  //   delay(1000);
+  //   Serial.println(analogRead(A14)); // PT l
+  //   Serial.println(analogRead(A12)); // PT m
+  //   Serial.println(analogRead(A13)); // PT r
+  //   Serial.println("\n"); // PT mid
 
 
   // }
 
   float reading_left = analogRead(A14);
   float reading_right = analogRead(A13);
-  
+  // rightShort = sR.read();
+  // leftShort = sL.read();
+  // rightLong = lR.read();
+  // leftLong = lL.read();
+  // delay(100);
+  // SerialCom->println(HC_SR04_range());
+ 
   float turn_error = 900;
   desiredAngle = turn_error;
-    // do {
-    //     State state = TURNTOLIGHT;
+  driveToLight();
+  driveToLightClose();
+  while(1);
+}
+void turnToLight(){
+   do {
+        State state = TURNTOLIGHT;
         
-    //     reading_left = analogRead(A14);
-    //     reading_right = analogRead(A13);
-    //     turn_error = reading_left - reading_right;
-    //     desiredAngle = turn_error;
+        reading_left = analogRead(A14);
+        reading_right = analogRead(A13);
+        turn_error = reading_left - reading_right;
+        desiredAngle = turn_error;
        
-    //     control(0, 0, 1, state);
+        control(0, 0, 1, state);
 
 
-    //   } while ((abs(turn_error) > 100));
+      } while ((abs(turn_error) > 100));
+}
 
-  do {
+void strafeRight(){
+  int count = 0;
+   do {
+    
+    rightShort = sR.read();
+    leftShort = sL.read();
+    rightLong = lR.read();
+    leftLong = lL.read();
+    State state = STRAFERIGHT;
+    rightShort = analogRead(A4);
+    leftShort = analogRead(A5);
+    delay(200);
+    ultraSonic = HC_SR04_range();
+    SerialCom->println("right");
+    SerialCom->println(ultraSonic);
+    control(0, 1, 0, state);
+    } while ((rightShort < 15 || leftShort < 15 || ultraSonic < 10));
+}
+
+void strafeLeft(){
+  int count = 0;
+   do {
+    
+    SerialCom->println("left");
+    rightShort = sR.read();
+    leftShort = sL.read();
+    rightLong = lR.read();
+    leftLong = lL.read();
+    State state = STRAFELEFT;
+    rightShort = analogRead(A4);
+    leftShort = analogRead(A5);
+    delay(200);
+    ultraSonic = HC_SR04_range();
+    control(0, 1, 0, state);
+    } while ((rightShort < 15 || leftShort < 15 || ultraSonic < 10));
+}
+
+void driveToLight(){
+
+   do {
+        SerialCom->println("straight");
         State state = DRIVETOLIGHT;
+        
         reading_middle = analogRead(A12);
         reading_left = analogRead(A14);
         reading_right = analogRead(A13);
+        
+        ultraSonic = HC_SR04_range();
+        SerialCom->println(ultraSonic);
+        rightShort = sR.read();
+        leftShort = sL.read();
+        rightLong = lR.read();
+        leftLong = lL.read();
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
         // SerialCom->print(turn_error);
@@ -220,12 +299,39 @@ void loop(void)  //main loop
         // SerialCom->println(reading_middle);
         control(1, 0, 1, state);
 
+        // light too far so must be obstacle
+        if (reading_middle < 800){
+          // detect object on right ir sensor
+          if(rightShort < 15){
+            if(leftLong > 10){
+              strafeLeft();
+            }else if(rightLong > 10){
+              strafeRight();
+            }
+          }
+          // detect object on left IR sesnor
+          else if(leftShort < 15){
+            if(rightLong > 10){
+              strafeRight();
+            }else if(leftLong > 10){
+              strafeLeft();
+            }
+          }
+          else if(ultraSonic < 10){
+           if(rightLong > 10){
+              strafeRight();
+            }else if(leftLong > 10){
+              strafeLeft();
+               }
+        }
+      }
+
 
       } while ((abs(turn_error) > 100) || (reading_middle < 950));
+}
 
-      
-    
-      do {
+void driveToLightClose() {
+  do {
         State state = DRIVETOLIGHTCLOSE;
         Distance = HC_SR04_range();
         reading_left = analogRead(A14);
@@ -240,61 +346,7 @@ void loop(void)  //main loop
 
 
       } while ((abs(turn_error) > 100) || (Distance > 2));
-  
-  while(1);
-
-  // Take readings, update global variables
-  // updateAngle();
-
-
-  // //  do {
-  // //       State state = ALIGN;
-  // //       updateAngle();
-  // //       control(0, 0, 0, state);
-  // //       Serial.println(currentAngle);
-  // //     } while (1);
-  // //     stop();
- 
-  // //findCorner();
-
-  // Test new things
-  // while (1) {
-  //   // Take PT reading
-  //   delay(1500);
-  //   float reading1 = analogRead(A8); // Phototransistor 
-  //   float reading2 = analogRead(A9); // Phototransistor
-  //   // updateAngle();
-  //   // Serial.println(currentAngle);
-  //   Serial.print(reading1);
-  //   Serial.print(", ");
-  //   Serial.println(reading2);
-  //   // digitalWrite(42, HIGH); // FOR FAN
-  // }
-
-  // double align_millis = millis();
-  // controlReset();
-  //     do {
-  //       State state = ALIGN;
-  //       updateAngle();
-  //       control(0, 0, 1, state);
-  //       Serial.println(currentAngle);
-  //     } while ( (align_millis+1000) > millis() && abs(error_z) < 0.8 );
-  //     stop();
-  
-
-  // // get direction
-  // if (s1.read() < s2.read()) {
-  //   plow(1);
-  // } else {
-  //   plow(0);
-  // }
-
-  // printMap();
-
-  // while (1) {
-  // }
 }
-
 
 void updateAngle() {
   // Time calculation (in seconds)
@@ -710,12 +762,12 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
   //calc error_x based on to wall or away from wall
   switch (run_state) {
     case TOWALL:
-      error_x = s2.read() - 6;
+      error_x = sL.read() - 6;
       error_y = 10 * current_lane - sens_y;
       error_z = 0 + sens_z;
       break;
     case AWAYWALL:
-      error_x = 10 - s1.read();
+      error_x = 10 - sR.read();
       error_y = 10 * current_lane - sens_y;
       error_z = 0 + sens_z;
       break;
@@ -763,6 +815,16 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
       error_x = Distance - 2;
       error_y =  0; // not actually
       error_z = desiredAngle;
+      break;
+    case STRAFELEFT:
+      error_x = 0;
+      error_y = 10;
+      error_z = 0;
+      break;
+    case STRAFERIGHT:
+      error_x = 0;
+      error_y = -10;
+      error_z = 0;
       break;
 
   }
