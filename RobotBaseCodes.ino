@@ -265,7 +265,9 @@ void strafeRight(){
   bool exit = 0;
    do {
     SerialCom->println(count);
-
+    if(rightLong < 10){
+      exit = 1;
+    }
     rightShort = sR.read();
     leftShort = sL.read();
     rightLong = lR.read();
@@ -294,6 +296,9 @@ void strafeLeft(){
   int count = 0;
   bool exit = 0;
    do {
+    if(leftLong < 10){
+      exit = 1;
+    }
     SerialCom->println(count);
     SerialCom->println("left");
     rightShort = sR.read();
