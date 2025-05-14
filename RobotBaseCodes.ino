@@ -113,7 +113,7 @@ double control_effort_array[3][1];  // array of xyz control efforts from pid con
 // CONTROL GAIN VALUES
 double kp_x = 1;
 double kp_y = 60;
-double kp_z = 0.4;
+double kp_z = 1.5;
 double ki_z = 0;
 double kd_z = 0;
 double power_lim = 500;  // max vex motor power
@@ -180,8 +180,27 @@ void setup(void) {
 
 void loop(void)  //main loop
 {
-  
-  
+  float error = 900;
+  // while(1){
+  //   delay(100);
+  //   reading_left = analogRead(A14);
+  //       reading_right = analogRead(A13);
+  //       SerialCom->print(reading_left);
+  //        SerialCom->print(", ");
+  //        SerialCom->println(reading_right);
+  // }
+  // do {
+  //       State state = TURNTOLIGHT;
+  //       reading_left = analogRead(A14);
+  //       reading_right = analogRead(A13);
+  //       error =  reading_left -reading_right;
+  //       desiredAngle = error;
+      
+  //       control(0, 0, 1, state);
+
+  //     } while (1);
+
+  //     while(1);
 
   // forward();
 
@@ -208,9 +227,11 @@ void loop(void)  //main loop
 
 
   // }
-
+  delay(400);
   float reading_left = analogRead(A14);
   float reading_right = analogRead(A13);
+  reading_middle = analogRead(A12);
+  SerialCom->println(reading_middle);
   // rightShort = sR.read();
   // leftShort = sL.read();
   // rightLong = lR.read();
@@ -241,8 +262,10 @@ void turnToLight(){
 
 void strafeRight(){
   int count = 0;
+  bool exit = 0;
    do {
-    
+    SerialCom->println(count);
+
     rightShort = sR.read();
     leftShort = sL.read();
     rightLong = lR.read();
@@ -250,18 +273,28 @@ void strafeRight(){
     State state = STRAFERIGHT;
     rightShort = analogRead(A4);
     leftShort = analogRead(A5);
-    delay(200);
+    // delay(200);
     ultraSonic = HC_SR04_range();
     SerialCom->println("right");
-    SerialCom->println(ultraSonic);
     control(0, 1, 0, state);
-    } while ((rightShort < 15 || leftShort < 15 || ultraSonic < 10));
+    
+    if(rightShort > 15 & leftShort > 15 & ultraSonic > 10){
+      while(count<40){
+        control(0, 1, 0, state);
+        count ++;
+        
+      }
+      exit = 1;
+    }
+    
+    } while (exit == 0);
 }
 
 void strafeLeft(){
   int count = 0;
+  bool exit = 0;
    do {
-    
+    SerialCom->println(count);
     SerialCom->println("left");
     rightShort = sR.read();
     leftShort = sL.read();
@@ -270,10 +303,18 @@ void strafeLeft(){
     State state = STRAFELEFT;
     rightShort = analogRead(A4);
     leftShort = analogRead(A5);
-    delay(200);
+    // delay(200);
     ultraSonic = HC_SR04_range();
     control(0, 1, 0, state);
-    } while ((rightShort < 15 || leftShort < 15 || ultraSonic < 10));
+    if(rightShort > 15 & leftShort > 15 & ultraSonic > 10){
+      while(count<40){
+        control(0, 1, 0, state);
+        count ++;
+      }
+      exit = 1;
+    }
+    
+    } while (exit == 0);
 }
 
 void driveToLight(){
@@ -287,7 +328,7 @@ void driveToLight(){
         reading_right = analogRead(A13);
         
         ultraSonic = HC_SR04_range();
-        SerialCom->println(ultraSonic);
+        SerialCom->println(reading_middle);
         rightShort = sR.read();
         leftShort = sL.read();
         rightLong = lR.read();
@@ -300,7 +341,7 @@ void driveToLight(){
         control(1, 0, 1, state);
 
         // light too far so must be obstacle
-        if (reading_middle < 800){
+        if (reading_middle < 900){
           // detect object on right ir sensor
           if(rightShort < 15){
             if(leftLong > 10){
@@ -327,7 +368,7 @@ void driveToLight(){
       }
 
 
-      } while ((abs(turn_error) > 100) || (reading_middle < 950));
+      } while ((abs(turn_error) > 100) || (reading_middle < 900));
 }
 
 void driveToLightClose() {
@@ -345,7 +386,7 @@ void driveToLightClose() {
         control(1, 0, 1, state);
 
 
-      } while ((abs(turn_error) > 100) || (Distance > 2));
+      } while ((abs(turn_error) > 100) || (Distance > 4));
 }
 
 void updateAngle() {
@@ -581,7 +622,7 @@ float HC_SR04_range() {
     pulse_width = t2 - t1;
     if (pulse_width > (MAX_DIST + 1000)) {
       // SerialCom->println("HC-SR04: NOT found");
-      return -1;
+      return 0;
     }
   }
 
@@ -594,7 +635,7 @@ float HC_SR04_range() {
     pulse_width = t2 - t1;
     if (pulse_width > (MAX_DIST + 1000)) {
       // SerialCom->println("HC-SR04: Out of range");
-      return -1;
+      return 0;
     }
   }
 
@@ -812,7 +853,7 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
       error_z = desiredAngle;
       break;
     case DRIVETOLIGHTCLOSE:
-      error_x = Distance - 2;
+      error_x = Distance - 4;
       error_y =  0; // not actually
       error_z = desiredAngle;
       break;
