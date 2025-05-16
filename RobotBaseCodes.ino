@@ -33,6 +33,11 @@ float Distance = 900;
 
 double mapping[10][2];
 
+// Fire stuff
+int PT_flag = 1; // Toggle after extinguishing first fire
+int left_pin;
+int right_pin;
+int threshold;
 
 #define BLUETOOTH_RX 10  // Serial Data input pin
 #define BLUETOOTH_TX 11  // Serial Data output pin
@@ -178,87 +183,8 @@ void setup(void) {
   right_rear_motor.attach(right_rear);
 }
 
-// void findFires() { // THIS FUNCTION WONT BE USED
-//   // Spin 360, take sum of PTs at each deg, highest sum -> direct of closest fire and ideally the general direction to head in
-//   int max_heat = 0;
-//   int temp = 0;
-//   int mh_pos = 0;
-
-//   // Need to make sure we are out from the wall enough to spin
-//   cw(); // No need for control
-//   while (currentAngle < 350) { // Overshooting
-//     updateAngle();
-//     // SerialCom->println(currentAngle);
-
-//     temp = analogRead(A14) + analogRead(A13) + analogRead(A12);
-//     if (temp > max_heat) {
-//       max_heat = temp;
-//       mh_pos = currentAngle;
-//     }
-//   } stop(); delay(1000);
-
-//   // Turn to closest fire, try to get as close as possible before letting the turn to fire control take over
-//   // ie. drive straight while avoiding obstacles state
-//   int error = currentAngle - mh_pos;
-//   if (error > 180) { // Turn right
-//     cw();
-//   } else {
-//     ccw();
-//   }
-//   while (error > 10) { // Overshooting
-//     updateAngle();
-//     error = currentAngle - mh_pos;
-//   } stop();
-//   // Can definitely make this more accurate, doesent have to be too good tho
-// }
-
-// void driveStraight() { // THIS FUNCTION WONT BE USED
-//   int flag = 0;
-//   do {
-//         // State state = DRIVESTRAIGHT; *****************
-
-//         ultraSonic = HC_SR04_range();
-//         rightShort = sR.read();
-//         leftShort = sL.read();
-//         rightLong = lR.read();
-//         leftLong = lL.read();
-
-//         // control(1, 0, 1, state); ************** NEED TO ADD CODE TO ACTUALLY DRIVE STRAIGHT
-
-        
-//         if(rightShort < 15){
-//           flag = 1; // After avoiding, go into fire control SHOULD ONLY EXIT AFTER STRAFING
-//           if(leftLong > 10){
-//             strafeLeft();
-//           }else if(rightLong > 10){
-//             strafeRight();
-//           }
-//         }
-//         // detect object on left IR sesnor
-//         else if(leftShort < 15){
-//           flag = 1;
-//           if(rightLong > 10){
-//             strafeRight();
-//           }else if(leftLong > 10){
-//             strafeLeft();
-//           }
-//         }
-//         else if(ultraSonic < 10){
-//           flag = 1;
-//           if(rightLong > 10){
-//             strafeRight();
-//           }else if(leftLong > 10){
-//             strafeLeft();
-//           }
-//         }
-//       } while (analogRead(A12) < 200 && flag == 0);
-// }
-
-
 void loop(void)  //main loop
 {
-  // CB
-
   // With current fire sensing, robot cant distinguish between the two fires and gets stuck
   // The single PT at the front is really good at detecting the direction of each fire (would be two spikes if robot did 360)
   // Can get robot to face direction of nearest fire, need a second front PT to approach it with control
@@ -273,7 +199,41 @@ void loop(void)  //main loop
   // Extinguish first fire
   // Use angled PTs to approach the second fire
 
-  // Take reading from PTs
+  // if (PT_flag) { // We are using the middle PTs
+  //   left_pin = 8;
+  //   right_pin = 12;
+  //   threshold = 25;
+  // } else { // We are using the angled PTs
+  //   left_pin = 14;
+  //   right_pin = 13;
+  //   threshold = 100;
+  // }
+
+  // while (1) {
+  //   delay(1000);
+  //   SerialCom->println(analogRead(14) + analogRead(13))/2;
+  // }
+
+  findFire();
+
+  driveToLight();
+
+  driveToLightClose();
+
+  PT_flag = 0;
+
+  // May need to back up a bit
+
+  driveToLight();
+
+  driveToLightClose();
+
+  while(1){};
+}
+
+void findFire() {
+  // SerialCom->println("here");
+   // Take reading from PTs
   int left_angle = analogRead(A14);
   int right_angle = analogRead(A13);
   int left_middle = analogRead(A8);
@@ -318,92 +278,10 @@ void loop(void)  //main loop
     } while (abs(error) > 25 || sum < 50); stop();
   }
 
-  while(1){};
+  // The robot is now facing the closest fire and is ready to approach it using the middle PTs
 
-
-  // int reading_left = 0;
-  // int reading_right = 0;
-  // int reading_middle = 0;
-
-  // while(1) {
-  //   delay(1000);
-  // //   reading_left = analogRead(A14);
-  // //   reading_right = analogRead(A13);
-  //     reading_middle = analogRead(A11);
-  // //   SerialCom->println(reading_left);
-  //   SerialCom->println(reading_middle);
-  // //   SerialCom->println(reading_right);
-  // //   SerialCom->println("\n");
-  // }
-
-  // CB
-
-
-  // float error = 900; ***********************
-  // while(1){
-  //   delay(100);
-  //   reading_left = analogRead(A14);
-  //       reading_right = analogRead(A13);
-  //       SerialCom->print(reading_left);
-  //        SerialCom->print(", ");
-  //        SerialCom->println(reading_right);
-  // }
-  // do {
-  //       State state = TURNTOLIGHT;
-  //       reading_left = analogRead(A14);
-  //       reading_right = analogRead(A13);
-  //       error =  reading_left -reading_right;
-  //       desiredAngle = error;
-      
-  //       control(0, 0, 1, state);
-
-  //     } while (1);
-
-  //     while(1);
-
-  // forward();
-
-  // right_front_motor.writeMicroseconds(1500 + 400);
-
-  // while (1) {
-    
-  //   // delay(500);
-  //   // SerialCom->println(HC_SR04_range());
-    // SerialCom->println(analogRead(A4)); // Short right
-    // SerialCom->println(analogRead(A5)); // Short left
-    // SerialCom->println(analogRead(A6)); // Long right
-    // SerialCom->println(analogRead(A7)); // Long left
-  //   // updateAngle();
-  //   // SerialCom->println(currentAngle); // Short right
-  //   // SerialCom->println(analogRead(A14)); // PT left
-  //   // SerialCom->println(analogRead(A12)); // PT mid
-  //   // SerialCom->println(analogRead(A13)); // PT right
-  //   delay(1000);
-  //   Serial.println(analogRead(A14)); // PT l
-  //   Serial.println(analogRead(A12)); // PT m
-  //   Serial.println(analogRead(A13)); // PT r
-  //   Serial.println("\n"); // PT mid
-
-
-  // }
-  delay(400);
-  float reading_left = analogRead(A8); // Left mid
-  float reading_right = analogRead(A12); // Right mid
-  // reading_middle = analogRead(A12);
-  // SerialCom->println(reading_middle);
-  // rightShort = sR.read();
-  // leftShort = sL.read();
-  // rightLong = lR.read();
-  // leftLong = lL.read();
-  // delay(100);
-  // SerialCom->println(HC_SR04_range());
- 
-  float turn_error = 900;
-  desiredAngle = turn_error;
-  driveToLight();
-  driveToLightClose();
-  while(1);
 }
+
 void turnToLight(){
    do {
         State state = TURNTOLIGHT;
@@ -423,7 +301,7 @@ void strafeRight(){
   int count = 0;
   bool exit = 0;
    do {
-    SerialCom->println(count);
+    // SerialCom->println(count);
     if(rightLong < 10){
       exit = 1;
     }
@@ -436,7 +314,7 @@ void strafeRight(){
     leftShort = analogRead(A5);
     // delay(200);
     ultraSonic = HC_SR04_range();
-    SerialCom->println("right");
+    // SerialCom->println("right");
     control(0, 1, 0, state);
     
     if(rightShort > 15 & leftShort > 15 & ultraSonic > 10){
@@ -449,6 +327,11 @@ void strafeRight(){
     }
     
     } while (exit == 0);
+
+    // If using middle PTs, need to recenter on fire
+    if (PT_flag) {
+      findFire();
+    }
 }
 
 void strafeLeft(){
@@ -458,8 +341,8 @@ void strafeLeft(){
     if(leftLong < 10){
       exit = 1;
     }
-    SerialCom->println(count);
-    SerialCom->println("left");
+    // SerialCom->println(count);
+    // SerialCom->println("left");
     rightShort = sR.read();
     leftShort = sL.read();
     rightLong = lR.read();
@@ -479,20 +362,43 @@ void strafeLeft(){
     }
     
     } while (exit == 0);
+
+    // If using middle PTs, need to recenter on fire
+    if (PT_flag) {
+      findFire();
+    }
 }
 
 void driveToLight(){
 
+  if (PT_flag) { // We are using the middle PTs
+    left_pin = 8;
+    right_pin = 12;
+    threshold = 25;
+    // May need to use angled PTs to determine if close to fire
+  } else { // We are using the angled PTs
+    left_pin = 14;
+    right_pin = 13;
+    threshold = 100;
+  }
+
+  int count = 0;
+
    do {
-        SerialCom->println("straight");
+    // count ++;
+    // if (count % 5 == 0) {
+    //   SerialCom->println((analogRead(14) + analogRead(13))/2);
+    //   SerialCom->println("\n");
+    // }
+        // SerialCom->println("straight");
         State state = DRIVETOLIGHT;
         
-        reading_middle = (analogRead(A12) + analogRead(A8))/2;
-        reading_left = analogRead(A8);
-        reading_right = analogRead(A12);
+        reading_middle = (analogRead(A14) + analogRead(A13))/2;
+        reading_left = analogRead(left_pin);
+        reading_right = analogRead(right_pin);
         
         ultraSonic = HC_SR04_range();
-        SerialCom->println(reading_middle);
+        // SerialCom->println(reading_middle);
         rightShort = sR.read();
         leftShort = sL.read();
         rightLong = lR.read();
@@ -505,7 +411,7 @@ void driveToLight(){
         control(1, 0, 1, state);
 
         // light too far so must be obstacle
-        if (((analogRead(A12) + analogRead(A8))/2) < 900){
+        if (((analogRead(A14) + analogRead(A13))/2) < 300){ // This condition probs off
           // detect object on right ir sensor
           if(rightShort < 15){
             if(leftLong > 10){
@@ -532,25 +438,37 @@ void driveToLight(){
       }
 
 
-      } while ((abs(turn_error) > 100) || (((analogRead(A12) + analogRead(A8))/2) < 900));
+      } while (((analogRead(A14) + analogRead(A14))/2) < 300); // while ((abs(turn_error) > threshold) || (((analogRead(left_pin) + analogRead(right_pin))/2) < 1500));
+      // SerialCom->println("here");
 }
 
 void driveToLightClose() {
+
+  if (PT_flag) { // We are using the middle PTs
+    left_pin = 8;
+    right_pin = 12;
+    threshold = 25;
+  } else { // We are using the angled PTs
+    left_pin = 14;
+    right_pin = 13;
+    threshold = 100;
+  }
+
   do {
         State state = DRIVETOLIGHTCLOSE;
         Distance = HC_SR04_range();
-        reading_left = analogRead(A8);
-        reading_right = analogRead(A12);
+        reading_left = analogRead(left_pin);
+        reading_right = analogRead(right_pin);
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
         kp_x = 20;
-        SerialCom->print(turn_error);
-        SerialCom->print(", ");
-        SerialCom->println(reading_middle);
+        // SerialCom->print(turn_error);
+        // SerialCom->print(", ");
+        // SerialCom->println(reading_middle);
         control(1, 0, 1, state);
 
 
-      } while ((abs(turn_error) > 100) || (Distance > 4));
+      } while ((abs(turn_error) > threshold) || (Distance > 4));
 }
 
 void updateAngle() {
