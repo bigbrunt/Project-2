@@ -118,7 +118,7 @@ double control_effort_array[3][1];  // array of xyz control efforts from pid con
 // CONTROL GAIN VALUES
 double kp_x = 1;
 double kp_y = 60;
-double kp_z = 1.5;
+double kp_z = 1;
 double ki_z = 0;
 double kd_z = 0;
 double power_lim = 500;  // max vex motor power
@@ -217,20 +217,32 @@ void loop(void)  //main loop
   findFire();
 
   driveToLight();
+  SerialCom->println("1");
 
   driveToLightClose();
-
+  SerialCom->println("2");
+  stop();
+  delay(5000);
+  backUp(0.5);
+  
   PT_flag = 0;
-
+   SerialCom->println("3");
   // May need to back up a bit
-
+  findFire();
+  SerialCom->println("4");
   driveToLight();
-
+  SerialCom->println("5");
   driveToLightClose();
-
+  SerialCom->println("6");
   while(1){};
 }
-
+void backUp(float seconds){
+  unsigned long start = millis();
+  unsigned long finish = start + seconds * 1000;
+  reverse();
+  while(millis() < finish);
+  stop();
+}
 void findFire() {
   // SerialCom->println("here");
    // Take reading from PTs
@@ -261,10 +273,10 @@ void findFire() {
       right_middle = analogRead(A12);
       sum = left_middle + right_middle;
       error = left_middle - right_middle;
-      // SerialCom->println(sum);
-      // SerialCom->println(error);
-      // SerialCom->println("\n");
-    } while (abs(error) > 25 || sum < 50); stop();
+      SerialCom->println(left_middle);
+      SerialCom->println(right_middle);
+      SerialCom->println("\n");
+    } while (abs(error) > 25 || (left_middle < 50 && right_middle < 50)); stop();
   } else {
     cw();
     do {
@@ -275,7 +287,7 @@ void findFire() {
       // SerialCom->println(sum);
       // SerialCom->println(error);
       // SerialCom->println("\n");
-    } while (abs(error) > 25 || sum < 50); stop();
+    } while (abs(error) > 25 || (left_middle < 50 && right_middle < 50)); stop();
   }
 
   // The robot is now facing the closest fire and is ready to approach it using the middle PTs
@@ -374,12 +386,10 @@ void driveToLight(){
   if (PT_flag) { // We are using the middle PTs
     left_pin = 8;
     right_pin = 12;
-    threshold = 25;
     // May need to use angled PTs to determine if close to fire
   } else { // We are using the angled PTs
     left_pin = 14;
     right_pin = 13;
-    threshold = 100;
   }
 
   int count = 0;
@@ -393,7 +403,7 @@ void driveToLight(){
         // SerialCom->println("straight");
         State state = DRIVETOLIGHT;
         
-        reading_middle = (analogRead(A14) + analogRead(A13))/2;
+        reading_middle = (analogRead(8) + analogRead(12))/2;
         reading_left = analogRead(left_pin);
         reading_right = analogRead(right_pin);
         
@@ -411,7 +421,7 @@ void driveToLight(){
         control(1, 0, 1, state);
 
         // light too far so must be obstacle
-        if (((analogRead(A14) + analogRead(A13))/2) < 300){ // This condition probs off
+        if (((analogRead(8) + analogRead(12))/2) < 800){ // This condition probs off
           // detect object on right ir sensor
           if(rightShort < 15){
             if(leftLong > 10){
@@ -438,7 +448,7 @@ void driveToLight(){
       }
 
 
-      } while (((analogRead(A14) + analogRead(A14))/2) < 300); // while ((abs(turn_error) > threshold) || (((analogRead(left_pin) + analogRead(right_pin))/2) < 1500));
+      } while ((abs(turn_error) > 25) || (((analogRead(12) + analogRead(8))/2) < 800)); // while ((abs(turn_error) > threshold) || (((analogRead(left_pin) + analogRead(right_pin))/2) < 1500));
       // SerialCom->println("here");
 }
 
@@ -447,7 +457,7 @@ void driveToLightClose() {
   if (PT_flag) { // We are using the middle PTs
     left_pin = 8;
     right_pin = 12;
-    threshold = 25;
+    threshold = 100;
   } else { // We are using the angled PTs
     left_pin = 14;
     right_pin = 13;
@@ -461,14 +471,14 @@ void driveToLightClose() {
         reading_right = analogRead(right_pin);
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
-        kp_x = 20;
-        // SerialCom->print(turn_error);
+        kp_x = 25;
+        SerialCom->println(turn_error);
         // SerialCom->print(", ");
         // SerialCom->println(reading_middle);
         control(1, 0, 1, state);
 
 
-      } while ((abs(turn_error) > threshold) || (Distance > 4));
+      } while (Distance > 4);
 }
 
 void updateAngle() {
