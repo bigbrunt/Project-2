@@ -6,9 +6,15 @@
 
 // Define Kalman filter instance (Q, R, initial estimate, initial error covariance)
 SensorFilter lR(0.2, 0.5, 0, 1, 4246.1, -0.913, A6);
-SensorFilter lL(0.2, 0.5, 0, 1, 1432.6, -0.53, A7);
+SensorFilter lL(0.2, 0.5, 0, 1, 3826.7, -0.862, A7);
 SensorFilter sR(0.2, 0.5, 0, 1, 1817.7, -0.897, A4);
 SensorFilter sL(0.2, 0.5, 0, 1, 2200.9, -1.001, A5);
+
+SensorFilter LMPT(0.2, 0.5, 0, 1, 1, 0, A8);
+SensorFilter RMPT(0.2, 0.5, 0, 1, 1, 0, A12);
+SensorFilter LAPT(0.2, 0.5, 0, 1, 1, 0, A14);
+SensorFilter RAPT(0.2, 0.5, 0, 1, 1, 0, A13);
+
 
 // intialise the vector for the box mapping
 Vector2D boxMap = Vector2D();
@@ -184,7 +190,18 @@ void setup(void) {
 }
 
 void loop(void)  //main loop
-{
+{ 
+  while(1){
+    int left_middle = analogRead(A8);
+    int right_middle = analogRead(A12);
+    delay(200);
+        SerialCom->print(left_middle);
+        SerialCom->print(", ");
+        SerialCom->print(right_middle);
+        SerialCom->print(", error: ");
+        SerialCom->println(abs(right_middle - left_middle));
+  }
+
   // With current fire sensing, robot cant distinguish between the two fires and gets stuck
   // The single PT at the front is really good at detecting the direction of each fire (would be two spikes if robot did 360)
   // Can get robot to face direction of nearest fire, need a second front PT to approach it with control
@@ -251,14 +268,13 @@ void findFire() {
   int left_middle = analogRead(A8);
   int right_middle = analogRead(A12);
   int error = left_middle - right_middle;
-  int sum = left_middle + right_middle;
+ 
 
   speed_val = 100; // Slow for now
 
   // ccw();
   // while(1) {
   //   delay(1000);
-  //   SerialCom->println(left_middle);
   //   SerialCom->println(right_middle);
   //   SerialCom->println("\n");
   //   left_middle = analogRead(A8);
@@ -271,25 +287,20 @@ void findFire() {
     do {
       left_middle = analogRead(A8);
       right_middle = analogRead(A12);
-      sum = left_middle + right_middle;
       error = left_middle - right_middle;
-      SerialCom->println(left_middle);
-      SerialCom->println(right_middle);
-      SerialCom->println("\n");
-    } while (abs(error) > 25 || (left_middle < 50 && right_middle < 50)); stop();
+      
+    } while (abs(error) > 5 || left_middle < 90 || right_middle < 90); 
+    stop();
   } else {
     cw();
     do {
       left_middle = analogRead(A8);
       right_middle = analogRead(A12);
-      sum = left_middle + right_middle;
       error = left_middle - right_middle;
-      // SerialCom->println(sum);
-      // SerialCom->println(error);
-      // SerialCom->println("\n");
-    } while (abs(error) > 25 || (left_middle < 50 && right_middle < 50)); stop();
+      
+    } while (abs(error) > 5 || left_middle < 90 || right_middle < 90); 
+    stop();
   }
-
   // The robot is now facing the closest fire and is ready to approach it using the middle PTs
 
 }
@@ -341,9 +352,9 @@ void strafeRight(){
     } while (exit == 0);
 
     // If using middle PTs, need to recenter on fire
-    if (PT_flag) {
-      findFire();
-    }
+   
+    findFire();
+    
 }
 
 void strafeLeft(){
@@ -376,9 +387,10 @@ void strafeLeft(){
     } while (exit == 0);
 
     // If using middle PTs, need to recenter on fire
-    if (PT_flag) {
-      findFire();
-    }
+
+
+    findFire();
+
 }
 
 void driveToLight(){
@@ -412,7 +424,7 @@ void driveToLight(){
         rightShort = sR.read();
         leftShort = sL.read();
         rightLong = lR.read();
-        leftLong = lL.read();
+        leftLong = lL.read() - 2;
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
         // SerialCom->print(turn_error);
@@ -421,34 +433,34 @@ void driveToLight(){
         control(1, 0, 1, state);
 
         // light too far so must be obstacle
-        if (((analogRead(8) + analogRead(12))/2) < 800){ // This condition probs off
+        if (((analogRead(8) + analogRead(12))/2) < 700){ // This condition probs off
           // detect object on right ir sensor
           if(rightShort < 15){
-            if(leftLong > 10){
+            if(leftLong > 14){
               strafeLeft();
-            }else if(rightLong > 10){
+            }else if(rightLong > 14){
               strafeRight();
             }
           }
           // detect object on left IR sesnor
           else if(leftShort < 15){
-            if(rightLong > 10){
+            if(rightLong > 14){
               strafeRight();
-            }else if(leftLong > 10){
+            }else if(leftLong > 14){
               strafeLeft();
             }
           }
-          else if(ultraSonic < 10){
+          else if(ultraSonic < 14){
            if(rightLong > 10){
               strafeRight();
-            }else if(leftLong > 10){
+            }else if(leftLong > 14){
               strafeLeft();
                }
         }
       }
 
 
-      } while ((abs(turn_error) > 25) || (((analogRead(12) + analogRead(8))/2) < 800)); // while ((abs(turn_error) > threshold) || (((analogRead(left_pin) + analogRead(right_pin))/2) < 1500));
+      } while ((abs(turn_error) > 25) || (((analogRead(12) + analogRead(8))/2) < 700)); // while ((abs(turn_error) > threshold) || (((analogRead(left_pin) + analogRead(right_pin))/2) < 1500));
       // SerialCom->println("here");
 }
 
@@ -472,7 +484,7 @@ void driveToLightClose() {
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
         kp_x = 25;
-        SerialCom->println(turn_error);
+        // SerialCom->println(turn_error);
         // SerialCom->print(", ");
         // SerialCom->println(reading_middle);
         control(1, 0, 1, state);
