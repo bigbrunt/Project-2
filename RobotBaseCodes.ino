@@ -11,7 +11,7 @@ SensorFilter sR(0.2, 0.5, 0, 1, 1817.7, -0.897, A4);
 SensorFilter sL(0.2, 0.5, 0, 1, 2200.9, -1.001, A5);
 
 SensorFilter LMPT(0.2, 0.5, 0, 1, 1, 0, A8);
-SensorFilter RMPT(0.2, 0.5, 0, 1, 1, 0, A12);
+SensorFilter RMPT(0.2, 0.5, 0, 1, 1, 0, A10);
 SensorFilter LAPT(0.2, 0.5, 0, 1, 1, 0, A14);
 SensorFilter RAPT(0.2, 0.5, 0, 1, 1, 0, A13);
 
@@ -44,6 +44,8 @@ int PT_flag = 1; // Toggle after extinguishing first fire
 int left_pin;
 int right_pin;
 int threshold;
+int fanCount = 0;
+int FanPin = 34; //change this??
 
 #define BLUETOOTH_RX 10  // Serial Data input pin
 #define BLUETOOTH_TX 11  // Serial Data output pin
@@ -124,7 +126,7 @@ double control_effort_array[3][1];  // array of xyz control efforts from pid con
 // CONTROL GAIN VALUES
 double kp_x = 1;
 double kp_y = 60;
-double kp_z = 1;
+double kp_z = 0.6;
 double ki_z = 0;
 double kd_z = 0;
 double power_lim = 500;  // max vex motor power
@@ -191,16 +193,18 @@ void setup(void) {
 
 void loop(void)  //main loop
 { 
-  while(1){
-    int left_middle = analogRead(A8);
-    int right_middle = analogRead(A12);
-    delay(200);
-        SerialCom->print(left_middle);
-        SerialCom->print(", ");
-        SerialCom->print(right_middle);
-        SerialCom->print(", error: ");
-        SerialCom->println(abs(right_middle - left_middle));
-  }
+  // while(1){
+  //   int left_middle = analogRead(A8);
+  //   int right_middle = analogRead(A10);
+  //   delay(200);
+  //     // SerialCom->println((left_middle + right_middle)/2);
+  //       SerialCom->print(left_middle);
+  //       SerialCom->print(", ");
+  //       SerialCom->print(right_middle);
+  //       SerialCom->print(", error: ");
+  //       SerialCom->println(abs(right_middle - left_middle));
+        
+  // }
 
   // With current fire sensing, robot cant distinguish between the two fires and gets stuck
   // The single PT at the front is really good at detecting the direction of each fire (would be two spikes if robot did 360)
@@ -239,7 +243,7 @@ void loop(void)  //main loop
   driveToLightClose();
   SerialCom->println("2");
   stop();
-  delay(5000);
+  FanOn();
   backUp(0.5);
   
   PT_flag = 0;
@@ -251,6 +255,11 @@ void loop(void)  //main loop
   SerialCom->println("5");
   driveToLightClose();
   SerialCom->println("6");
+  FanOn();
+
+  if (fanCount == 2){
+  
+  }
   while(1){};
 }
 void backUp(float seconds){
@@ -260,19 +269,31 @@ void backUp(float seconds){
   while(millis() < finish);
   stop();
 }
+
+void FanOn(){
+  fanCount++;
+  unsigned long start = millis();
+  unsigned long finish = start + 10 * 1000;
+  digitalWrite(FanPin, HIGH);
+  while(millis() < finish){
+  };
+  digitalWrite(FanPin, LOW);
+  stop();
+
+}
 void findFire() {
-  // SerialCom->println("here");
+  SerialCom->println("here");
    // Take reading from PTs
   int left_angle = analogRead(A14);
   int right_angle = analogRead(A13);
   int left_middle = analogRead(A8);
-  int right_middle = analogRead(A12);
+  int right_middle = analogRead(A10);
   int error = left_middle - right_middle;
  
 
   speed_val = 100; // Slow for now
 
-  // ccw();
+  
   // while(1) {
   //   delay(1000);
   //   SerialCom->println(right_middle);
@@ -280,13 +301,13 @@ void findFire() {
   //   left_middle = analogRead(A8);
   //   right_middle = analogRead(A12);
   // }
-
+  
   if (left_angle > right_angle) {
     // Turn left until mid PTs ~=
     ccw(); // Turn with low speed value for this part
     do {
       left_middle = analogRead(A8);
-      right_middle = analogRead(A12);
+      right_middle = analogRead(A10);
       error = left_middle - right_middle;
       
     } while (abs(error) > 5 || left_middle < 90 || right_middle < 90); 
@@ -295,7 +316,7 @@ void findFire() {
     cw();
     do {
       left_middle = analogRead(A8);
-      right_middle = analogRead(A12);
+      right_middle = analogRead(A10);
       error = left_middle - right_middle;
       
     } while (abs(error) > 5 || left_middle < 90 || right_middle < 90); 
@@ -310,7 +331,7 @@ void turnToLight(){
         State state = TURNTOLIGHT;
         
         reading_left = analogRead(A8);
-        reading_right = analogRead(A12);
+        reading_right = analogRead(A10);
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
        
@@ -395,14 +416,11 @@ void strafeLeft(){
 
 void driveToLight(){
 
-  if (PT_flag) { // We are using the middle PTs
-    left_pin = 8;
-    right_pin = 12;
-    // May need to use angled PTs to determine if close to fire
-  } else { // We are using the angled PTs
-    left_pin = 14;
-    right_pin = 13;
-  }
+  
+  left_pin = 8;
+  right_pin = 10;
+
+
 
   int count = 0;
 
@@ -415,7 +433,7 @@ void driveToLight(){
         // SerialCom->println("straight");
         State state = DRIVETOLIGHT;
         
-        reading_middle = (analogRead(8) + analogRead(12))/2;
+        reading_middle = (analogRead(8) + analogRead(10))/2;
         reading_left = analogRead(left_pin);
         reading_right = analogRead(right_pin);
         
@@ -433,7 +451,7 @@ void driveToLight(){
         control(1, 0, 1, state);
 
         // light too far so must be obstacle
-        if (((analogRead(8) + analogRead(12))/2) < 700){ // This condition probs off
+        if (((analogRead(8) + analogRead(10))/2) < 900){ // This condition probs off
           // detect object on right ir sensor
           if(rightShort < 15){
             if(leftLong > 14){
@@ -460,21 +478,17 @@ void driveToLight(){
       }
 
 
-      } while ((abs(turn_error) > 25) || (((analogRead(12) + analogRead(8))/2) < 700)); // while ((abs(turn_error) > threshold) || (((analogRead(left_pin) + analogRead(right_pin))/2) < 1500));
+      } while ((abs(turn_error) > 25) || (((analogRead(10) + analogRead(8))/2) < 900)); // while ((abs(turn_error) > threshold) || (((analogRead(left_pin) + analogRead(right_pin))/2) < 1500));
       // SerialCom->println("here");
 }
 
 void driveToLightClose() {
 
-  if (PT_flag) { // We are using the middle PTs
-    left_pin = 8;
-    right_pin = 12;
-    threshold = 100;
-  } else { // We are using the angled PTs
-    left_pin = 14;
-    right_pin = 13;
-    threshold = 100;
-  }
+
+  left_pin = 8;
+  right_pin = 10;
+  threshold = 100;
+
 
   do {
         State state = DRIVETOLIGHTCLOSE;
