@@ -45,7 +45,7 @@ int left_pin;
 int right_pin;
 int threshold;
 int fanCount = 0;
-int FanPin = 34; //change this??
+int FanPin = 45; //change this??
 
 #define BLUETOOTH_RX 10  // Serial Data input pin
 #define BLUETOOTH_TX 11  // Serial Data output pin
@@ -129,7 +129,7 @@ double kp_y = 60;
 double kp_z = 0.6;
 double ki_z = 0;
 double kd_z = 0;
-double power_lim = 500;  // max vex motor power
+double power_lim =400 ;  // max vex motor power
 
 //timing
 double accel_start_time = 0;
@@ -194,6 +194,16 @@ void setup(void) {
 void loop(void)  //main loop
 { 
   // while(1){
+  //   rightLong = lR.read();
+  //   leftLong = lL.read();
+  //   Serial.print(leftLong);
+  //   Serial.print(", ");
+  //   Serial.println(rightLong);
+
+  // }
+ 
+
+  // while(1){
   //   int left_middle = analogRead(A8);
   //   int right_middle = analogRead(A10);
   //   delay(200);
@@ -235,6 +245,7 @@ void loop(void)  //main loop
   //   SerialCom->println(analogRead(14) + analogRead(13))/2;
   // }
 
+
   findFire();
 
   driveToLight();
@@ -244,18 +255,29 @@ void loop(void)  //main loop
   SerialCom->println("2");
   stop();
   FanOn();
+  digitalWrite(FanPin, LOW);
+
+
   backUp(0.5);
+  digitalWrite(FanPin, LOW);
   
   PT_flag = 0;
    SerialCom->println("3");
   // May need to back up a bit
   findFire();
+  digitalWrite(FanPin, LOW);
+  
   SerialCom->println("4");
   driveToLight();
   SerialCom->println("5");
   driveToLightClose();
   SerialCom->println("6");
+  stop();
   FanOn();
+  digitalWrite(FanPin, LOW);
+  digitalWrite(FanPin, LOW);
+  digitalWrite(FanPin, LOW);
+  
 
   if (fanCount == 2){
   
@@ -272,10 +294,14 @@ void backUp(float seconds){
 
 void FanOn(){
   fanCount++;
-  unsigned long start = millis();
-  unsigned long finish = start + 10 * 1000;
+  int left_middle = analogRead(A8);
+  int right_middle = analogRead(A10);
+
+
   digitalWrite(FanPin, HIGH);
-  while(millis() < finish){
+  while((left_middle + right_middle)/2 > 500){
+    left_middle = analogRead(A8);
+    right_middle = analogRead(A10);
   };
   digitalWrite(FanPin, LOW);
   stop();
@@ -322,8 +348,12 @@ void findFire() {
     } while (abs(error) > 5 || left_middle < 90 || right_middle < 90); 
     stop();
   }
-  // The robot is now facing the closest fire and is ready to approach it using the middle PTs
 
+  // The robot is now facing the closest fire and is ready to approach it using the middle PTs
+  rightShort = sR.read();
+  leftShort = sL.read();
+  rightLong = lR.read();
+  leftLong = lL.read();
 }
 
 void turnToLight(){
@@ -344,10 +374,16 @@ void turnToLight(){
 void strafeRight(){
   int count = 0;
   bool exit = 0;
+    float US = HC_SR04_range();
+  
    do {
     // SerialCom->println(count);
     if(rightLong < 10){
       exit = 1;
+    }
+    US = HC_SR04_range();
+    if (US < 3) {
+      backUp(0.5);
     }
     rightShort = sR.read();
     leftShort = sL.read();
@@ -362,7 +398,7 @@ void strafeRight(){
     control(0, 1, 0, state);
     
     if(rightShort > 15 & leftShort > 15 & ultraSonic > 10){
-      while(count<40){
+      while(count<25){
         control(0, 1, 0, state);
         count ++;
         
@@ -381,9 +417,14 @@ void strafeRight(){
 void strafeLeft(){
   int count = 0;
   bool exit = 0;
+  float US = HC_SR04_range();
    do {
     if(leftLong < 10){
       exit = 1;
+    }
+    US = HC_SR04_range();
+    if (US < 3) {
+      backUp(0.5);
     }
     // SerialCom->println(count);
     // SerialCom->println("left");
@@ -398,7 +439,7 @@ void strafeLeft(){
     ultraSonic = HC_SR04_range();
     control(0, 1, 0, state);
     if(rightShort > 15 & leftShort > 15 & ultraSonic > 10){
-      while(count<40){
+      while(count<25){
         control(0, 1, 0, state);
         count ++;
       }
@@ -419,7 +460,8 @@ void driveToLight(){
   
   left_pin = 8;
   right_pin = 10;
-
+  int left_middle = 999;
+  int right_middle = 999;
 
 
   int count = 0;
@@ -432,8 +474,9 @@ void driveToLight(){
     // }
         // SerialCom->println("straight");
         State state = DRIVETOLIGHT;
-        
-        reading_middle = (analogRead(8) + analogRead(10))/2;
+        left_middle = analogRead(A8);
+        right_middle = analogRead(A10);
+        reading_middle = (left_middle + right_middle)/2;
         reading_left = analogRead(left_pin);
         reading_right = analogRead(right_pin);
         
@@ -448,37 +491,44 @@ void driveToLight(){
         // SerialCom->print(turn_error);
         // SerialCom->print(", ");
         // SerialCom->println(reading_middle);
-        control(1, 0, 1, state);
+        
 
         // light too far so must be obstacle
-        if (((analogRead(8) + analogRead(10))/2) < 900){ // This condition probs off
+        if (((analogRead(8) + analogRead(10))/2) < 750){ // This condition probs off
           // detect object on right ir sensor
-          if(rightShort < 15){
-            if(leftLong > 14){
+          if(rightShort < 20){
+            if(leftLong > 28){
               strafeLeft();
-            }else if(rightLong > 14){
+            }else if(rightLong > 28){
               strafeRight();
             }
           }
           // detect object on left IR sesnor
-          else if(leftShort < 15){
-            if(rightLong > 14){
+          else if(leftShort < 20){
+            if(rightLong > 28){
               strafeRight();
-            }else if(leftLong > 14){
+            }else if(leftLong > 28){
               strafeLeft();
             }
           }
           else if(ultraSonic < 14){
-           if(rightLong > 10){
+           if(rightLong > 28){
               strafeRight();
-            }else if(leftLong > 14){
+            }else if(leftLong > 28){
               strafeLeft();
                }
         }
+      if(left_middle < 90 || right_middle < 90){
+        findFire();
       }
 
+      }
+      control(1, 0, 1, state);
+      if(analogRead(10) > 950 || analogRead(8) > 950){
+        turn_error = 0;
+      }
 
-      } while ((abs(turn_error) > 25) || (((analogRead(10) + analogRead(8))/2) < 900)); // while ((abs(turn_error) > threshold) || (((analogRead(left_pin) + analogRead(right_pin))/2) < 1500));
+      } while ((abs(turn_error) > 40) || (((analogRead(10) + analogRead(8))/2) < 800)); // while ((abs(turn_error) > threshold) || (((analogRead(left_pin) + analogRead(right_pin))/2) < 1500));
       // SerialCom->println("here");
 }
 
@@ -497,14 +547,14 @@ void driveToLightClose() {
         reading_right = analogRead(right_pin);
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
-        kp_x = 25;
+        kp_x = 26;
         // SerialCom->println(turn_error);
         // SerialCom->print(", ");
         // SerialCom->println(reading_middle);
         control(1, 0, 1, state);
 
 
-      } while (Distance > 4);
+      } while (Distance > 5);
 }
 
 void updateAngle() {
