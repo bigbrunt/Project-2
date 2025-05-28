@@ -245,8 +245,20 @@ void loop(void)  //main loop
   //   SerialCom->println(analogRead(14) + analogRead(13))/2;
   // }
 
+  // while(1) {
+  //   delay(200);
+  //   int left_middle = analogRead(A8);
+  //   int right_middle = analogRead(A10);
+  //   SerialCom->print(left_middle);
+  //     SerialCom->print(", ");
+  //     SerialCom->println(right_middle);
+
+  // }
+
 
   findFire();
+
+
 
   driveToLight();
   SerialCom->println("1");
@@ -255,17 +267,17 @@ void loop(void)  //main loop
   SerialCom->println("2");
   stop();
   FanOn();
-  digitalWrite(FanPin, LOW);
+
 
 
   backUp(0.5);
-  digitalWrite(FanPin, LOW);
+
   
   PT_flag = 0;
    SerialCom->println("3");
   // May need to back up a bit
   findFire();
-  digitalWrite(FanPin, LOW);
+
   
   SerialCom->println("4");
   driveToLight();
@@ -274,9 +286,7 @@ void loop(void)  //main loop
   SerialCom->println("6");
   stop();
   FanOn();
-  digitalWrite(FanPin, LOW);
-  digitalWrite(FanPin, LOW);
-  digitalWrite(FanPin, LOW);
+
   
 
   if (fanCount == 2){
@@ -297,16 +307,18 @@ void FanOn(){
   int left_middle = analogRead(A8);
   int right_middle = analogRead(A10);
 
-
   digitalWrite(FanPin, HIGH);
   while((left_middle + right_middle)/2 > 500){
     left_middle = analogRead(A8);
     right_middle = analogRead(A10);
   };
+  SerialCom->println("Here");
   digitalWrite(FanPin, LOW);
   stop();
 
 }
+
+
 void findFire() {
   SerialCom->println("here");
    // Take reading from PTs
@@ -325,7 +337,7 @@ void findFire() {
   //   SerialCom->println(right_middle);
   //   SerialCom->println("\n");
   //   left_middle = analogRead(A8);
-  //   right_middle = analogRead(A12);
+  //   right_middle = analogRead(A10);
   // }
   
   if (left_angle > right_angle) {
@@ -344,7 +356,7 @@ void findFire() {
       left_middle = analogRead(A8);
       right_middle = analogRead(A10);
       error = left_middle - right_middle;
-      
+
     } while (abs(error) > 5 || left_middle < 90 || right_middle < 90); 
     stop();
   }
@@ -496,7 +508,7 @@ void driveToLight(){
         // light too far so must be obstacle
         if (((analogRead(8) + analogRead(10))/2) < 750){ // This condition probs off
           // detect object on right ir sensor
-          if(rightShort < 20){
+          if(rightShort < 25){
             if(leftLong > 28){
               strafeLeft();
             }else if(rightLong > 28){
@@ -504,7 +516,7 @@ void driveToLight(){
             }
           }
           // detect object on left IR sesnor
-          else if(leftShort < 20){
+          else if(leftShort < 25){
             if(rightLong > 28){
               strafeRight();
             }else if(leftLong > 28){
@@ -1304,3 +1316,4 @@ void serialOutput(int32_t Value1, int32_t Value2, float Value3) {
     
   }
 }
+
