@@ -406,7 +406,7 @@ void strafeRight(){
   
    do {
     // SerialCom->println(count);
-    if(rightLong < 10){
+    if(rightLong < 17){
       exit = 1;
     }
     US = HC_SR04_range();
@@ -462,7 +462,7 @@ void strafeLeft(){
   power_lim = 400;
   float US = HC_SR04_range();
    do {
-    if(leftLong < 10){
+    if(leftLong < 17){
       exit = 1;
     }
     US = HC_SR04_range();
@@ -611,7 +611,8 @@ void driveToLightClose() {
         control(1, 0, 1, state);
 
 
-      } while (Distance > 4);
+      } while (Distance > 5);
+  stop();
 }
 
 void updateAngle() {
@@ -1078,9 +1079,9 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
       error_z = desiredAngle;
       break;
     case DRIVETOLIGHTCLOSE:
-      error_x = Distance - 4;
+      error_x = Distance - 4.8;
       error_y =  0; // not actually
-      error_z = desiredAngle;
+      error_z = desiredAngle/2;
       break;
     case STRAFELEFT:
       error_x = 0;
