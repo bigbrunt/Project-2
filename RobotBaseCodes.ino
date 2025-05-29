@@ -348,7 +348,7 @@ void findFire() {
       right_middle = analogRead(A10);
       error = left_middle - right_middle;
       
-    } while (abs(error) > 5 || left_middle < 90 || right_middle < 90); 
+    } while (abs(error) > 5 || left_middle < 50 || right_middle < 50); 
     stop();
   } else {
     cw();
@@ -357,7 +357,7 @@ void findFire() {
       right_middle = analogRead(A10);
       error = left_middle - right_middle;
 
-    } while (abs(error) > 5 || left_middle < 90 || right_middle < 90); 
+    } while (abs(error) > 5 || left_middle < 50 || right_middle < 50); 
     stop();
   }
 
@@ -507,8 +507,12 @@ void driveToLight(){
 
         // light too far so must be obstacle
         if (((analogRead(8) + analogRead(10))/2) < 750){ // This condition probs off
+           if (ultraSonic < 3 || rightShort < 11 || leftShort < 11 ) {
+            backUp(0.5);
+          } 
+          
           // detect object on right ir sensor
-          if(rightShort < 25){
+          else if(rightShort < 25){
             if(leftLong > 28){
               strafeLeft();
             }else if(rightLong > 28){
@@ -523,6 +527,7 @@ void driveToLight(){
               strafeLeft();
             }
           }
+         
           else if(ultraSonic < 14){
            if(rightLong > 28){
               strafeRight();
@@ -530,7 +535,7 @@ void driveToLight(){
               strafeLeft();
                }
         }
-      if(left_middle < 90 || right_middle < 90){
+      if(left_middle < 50 || right_middle < 50){
         findFire();
       }
 
