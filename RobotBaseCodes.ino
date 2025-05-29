@@ -15,6 +15,11 @@ SensorFilter RMPT(0.2, 0.5, 0, 1, 1, 0, A10);
 SensorFilter LAPT(0.2, 0.5, 0, 1, 1, 0, A14);
 SensorFilter RAPT(0.2, 0.5, 0, 1, 1, 0, A13);
 
+// Strafe stuff
+float lastStrafe = 0; // Needs to be above threshold for first strafe
+float currentStrafe = 0;
+float strafeThresh = 400;
+
 
 // intialise the vector for the box mapping
 Vector2D boxMap = Vector2D();
@@ -36,6 +41,7 @@ float reading_left = 0;
 float turn_error = 900;
 float ultraSonic = 0;
 float Distance = 900;
+int longStrafe = 0;
 
 double mapping[10][2];
 
@@ -129,7 +135,7 @@ double kp_y = 60;
 double kp_z = 0.6;
 double ki_z = 0;
 double kd_z = 0;
-double power_lim =400 ;  // max vex motor power
+double power_lim = 300 ;  // max vex motor power
 
 //timing
 double accel_start_time = 0;
@@ -348,7 +354,7 @@ void findFire() {
       right_middle = analogRead(A10);
       error = left_middle - right_middle;
       
-    } while (abs(error) > 5 || left_middle < 50 || right_middle < 50); 
+    } while (abs(error) > 5 || left_middle < 40 || right_middle < 40); 
     stop();
   } else {
     cw();
@@ -357,7 +363,7 @@ void findFire() {
       right_middle = analogRead(A10);
       error = left_middle - right_middle;
 
-    } while (abs(error) > 5 || left_middle < 50 || right_middle < 50); 
+    } while (abs(error) > 5 || left_middle < 40 || right_middle < 40); 
     stop();
   }
 
@@ -384,8 +390,18 @@ void turnToLight(){
 }
 
 void strafeRight(){
+  currentStrafe = millis();
+
+  if ((currentStrafe - lastStrafe) < strafeThresh) {
+    longStrafe ++;
+  } else{
+    longStrafe = 0;
+  }
+  
+  int count_dist = 35;
   int count = 0;
   bool exit = 0;
+  power_lim = 400;
     float US = HC_SR04_range();
   
    do {
@@ -410,25 +426,40 @@ void strafeRight(){
     control(0, 1, 0, state);
     
     if(rightShort > 15 & leftShort > 15 & ultraSonic > 10){
-      while(count<25){
+      if(longStrafe >= 2){
+        count_dist = 80;
+      } else{
+        count_dist = 35;
+      }
+      while(count<count_dist){
         control(0, 1, 0, state);
         count ++;
-        
       }
       exit = 1;
     }
     
     } while (exit == 0);
-
+    power_lim = 300;
     // If using middle PTs, need to recenter on fire
-   
     findFire();
+
+    lastStrafe = millis();
     
 }
 
 void strafeLeft(){
+  currentStrafe = millis();
+
+  if ((currentStrafe - lastStrafe) < strafeThresh) {
+    longStrafe ++;
+  } else{
+    longStrafe = 0;
+  }
+
+  int count_dist = 35;
   int count = 0;
   bool exit = 0;
+  power_lim = 400;
   float US = HC_SR04_range();
    do {
     if(leftLong < 10){
@@ -451,7 +482,12 @@ void strafeLeft(){
     ultraSonic = HC_SR04_range();
     control(0, 1, 0, state);
     if(rightShort > 15 & leftShort > 15 & ultraSonic > 10){
-      while(count<25){
+      if(longStrafe >= 2){
+        count_dist = 80;
+      } else{
+        count_dist = 35;
+      }
+      while(count<count_dist){
         control(0, 1, 0, state);
         count ++;
       }
@@ -461,10 +497,11 @@ void strafeLeft(){
     } while (exit == 0);
 
     // If using middle PTs, need to recenter on fire
-
-
+    power_lim = 300;
     findFire();
 
+    lastStrafe = millis();
+    
 }
 
 void driveToLight(){
@@ -507,12 +544,13 @@ void driveToLight(){
 
         // light too far so must be obstacle
         if (((analogRead(8) + analogRead(10))/2) < 750){ // This condition probs off
-           if (ultraSonic < 3 || rightShort < 11 || leftShort < 11 ) {
+           if (ultraSonic < 5 || rightShort < 14 || leftShort < 14 ) {
             backUp(0.5);
           } 
           
           // detect object on right ir sensor
           else if(rightShort < 25){
+            longStrafe = 0;
             if(leftLong > 28){
               strafeLeft();
             }else if(rightLong > 28){
@@ -521,6 +559,7 @@ void driveToLight(){
           }
           // detect object on left IR sesnor
           else if(leftShort < 25){
+            longStrafe = 0;
             if(rightLong > 28){
               strafeRight();
             }else if(leftLong > 28){
@@ -529,13 +568,14 @@ void driveToLight(){
           }
          
           else if(ultraSonic < 14){
+            longStrafe = 0;
            if(rightLong > 28){
               strafeRight();
             }else if(leftLong > 28){
               strafeLeft();
                }
         }
-      if(left_middle < 50 || right_middle < 50){
+      if(left_middle < 40 || right_middle < 40){
         findFire();
       }
 
@@ -564,14 +604,14 @@ void driveToLightClose() {
         reading_right = analogRead(right_pin);
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
-        kp_x = 26;
+        kp_x = 24;
         // SerialCom->println(turn_error);
         // SerialCom->print(", ");
         // SerialCom->println(reading_middle);
         control(1, 0, 1, state);
 
 
-      } while (Distance > 5);
+      } while (Distance > 4);
 }
 
 void updateAngle() {
