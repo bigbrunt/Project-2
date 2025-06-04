@@ -2,11 +2,11 @@
 #include <SoftwareSerial.h>  // For wireless communication
 #include <Arduino.h>
 #include "SensorFilter.h"
-#include "vector.h"
+#include "Vector.h"
 
 // Define Kalman filter instance (Q, R, initial estimate, initial error covariance)
-SensorFilter lR(0.2, 0.5, 0, 1, 4246.1, -0.913, A6);
-SensorFilter lL(0.2, 0.5, 0, 1, 3826.7, -0.862, A7);
+SensorFilter lR(0.2, 0.5, 0, 1, 4246.1, -0.913, A7);
+SensorFilter lL(0.2, 0.5, 0, 1, 3826.7, -0.862, A6);
 SensorFilter sR(0.2, 0.5, 0, 1, 1817.7, -0.897, A4);
 SensorFilter sL(0.2, 0.5, 0, 1, 2200.9, -1.001, A5);
 
@@ -76,8 +76,8 @@ const byte right_front = 46;
 //IR range sensors
 int rightShort = analogRead(A4);
 int leftShort = analogRead(A5);
-int rightLong = analogRead(A6);
-int leftLong = analogRead(A7);
+int rightLong = analogRead(A7);
+int leftLong = analogRead(A6);
 
 //Default ultrasonic ranging sensor pins, these pins are defined my the Shield
 const int TRIG_PIN = 48;  //48
@@ -406,7 +406,7 @@ void strafeRight(){
   
    do {
     // SerialCom->println(count);
-    if(rightLong < 17){
+    if(rightShort < 14){
       exit = 1;
     }
     US = HC_SR04_range();
@@ -425,7 +425,7 @@ void strafeRight(){
     // SerialCom->println("right");
     control(0, 1, 0, state);
     
-    if(rightShort > 15 & leftShort > 15 & ultraSonic > 10){
+    if(rightLong > 15 & leftLong > 15 & ultraSonic > 10){
       if(longStrafe >= 2){
         count_dist = 80;
       } else{
@@ -462,7 +462,7 @@ void strafeLeft(){
   power_lim = 400;
   float US = HC_SR04_range();
    do {
-    if(leftLong < 17){
+    if(leftShort < 14){
       exit = 1;
     }
     US = HC_SR04_range();
@@ -476,12 +476,10 @@ void strafeLeft(){
     rightLong = lR.read();
     leftLong = lL.read();
     State state = STRAFELEFT;
-    rightShort = analogRead(A4);
-    leftShort = analogRead(A5);
     // delay(200);
     ultraSonic = HC_SR04_range();
     control(0, 1, 0, state);
-    if(rightShort > 15 & leftShort > 15 & ultraSonic > 10){
+    if(rightLong > 15 & leftLong > 15 & ultraSonic > 10){
       if(longStrafe >= 2){
         count_dist = 80;
       } else{
@@ -544,36 +542,42 @@ void driveToLight(){
 
         // light too far so must be obstacle
         if (((analogRead(8) + analogRead(10))/2) < 750){ // This condition probs off
-           if (ultraSonic < 5 || rightShort < 14 || leftShort < 14 ) {
+           if (ultraSonic < 5 || rightLong < 14 || leftLong < 14 ) {
             backUp(0.5);
           } 
           
           // detect object on right ir sensor
-          else if(rightShort < 25){
+          else if(rightLong < 25){
             longStrafe = 0;
-            if(leftLong > 28){
+            if(leftShort > 16){
               strafeLeft();
-            }else if(rightLong > 28){
+            }else if(rightShort > 16){
               strafeRight();
+            } else{
+              backUp(1);
             }
           }
           // detect object on left IR sesnor
-          else if(leftShort < 25){
+          else if(leftLong < 25){
             longStrafe = 0;
-            if(rightLong > 28){
+            if(rightShort > 16){
               strafeRight();
-            }else if(leftLong > 28){
+            }else if(leftShort > 16){
               strafeLeft();
+            } else{
+              backUp(1);
             }
           }
          
           else if(ultraSonic < 14){
             longStrafe = 0;
-           if(rightLong > 28){
+           if(rightShort > 16){
               strafeRight();
-            }else if(leftLong > 28){
+            }else if(leftShort > 16){
               strafeLeft();
-               }
+            }else{
+              backUp(1);
+            }
         }
       if(left_middle < 40 || right_middle < 40){
         findFire();
@@ -604,7 +608,7 @@ void driveToLightClose() {
         reading_right = analogRead(right_pin);
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
-        kp_x = 24;
+        kp_x = 24.5;
         // SerialCom->println(turn_error);
         // SerialCom->print(", ");
         // SerialCom->println(reading_middle);
