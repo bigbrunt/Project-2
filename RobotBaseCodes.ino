@@ -15,10 +15,10 @@ SensorFilter RMPT(0.2, 0.5, 0, 1, 1, 0, A10);
 SensorFilter LAPT(0.2, 0.5, 0, 1, 1, 0, A14);
 SensorFilter RAPT(0.2, 0.5, 0, 1, 1, 0, A13);
 
-// Strafe stuff
-float lastStrafe = 0; // Needs to be above threshold for first strafe
-float currentStrafe = 0;
-float strafeThresh = 400;
+// // Strafe stuff
+// float lastTime = 0; // Needs to be above threshold for first strafe
+// float currentTime = 0;
+// float TimeThresh = 700;
 
 
 // intialise the vector for the box mapping
@@ -42,6 +42,9 @@ float turn_error = 900;
 float ultraSonic = 0;
 float Distance = 900;
 int longStrafe = 0;
+bool leftDirectionFlag = 1;
+bool rightDirectionFlag = 1;
+int nonStrafeCount = 0;
 
 double mapping[10][2];
 
@@ -121,6 +124,7 @@ int current_lane = 0;
 double error_x = 0;
 double error_y = 0;
 double error_z = 0;
+double sum_error_x = 0;
 double sum_error_z = 0;
 double previous_error_z = 0;
 double error_z_derivative = 0;
@@ -131,6 +135,7 @@ double control_effort_array[3][1];  // array of xyz control efforts from pid con
 
 // CONTROL GAIN VALUES
 double kp_x = 1;
+double ki_x = 0;
 double kp_y = 60;
 double kp_z = 0.6;
 double ki_z = 0;
@@ -200,25 +205,25 @@ void setup(void) {
 void loop(void)  //main loop
 { 
   // while(1){
-  //   rightLong = lR.read();
-  //   leftLong = lL.read();
-  //   Serial.print(leftLong);
-  //   Serial.print(", ");
-  //   Serial.println(rightLong);
+  //   rightShort = sR.read();
+  //   leftShort = sL.read();
+  //   SerialCom->print(leftShort);
+  //   SerialCom->print(", ");
+  //   SerialCom->println(rightShort);
+  //   delay(200);
 
   // }
  
 
   // while(1){
-  //   int left_middle = analogRead(A8);
-  //   int right_middle = analogRead(A10);
+  //   int left_angle = analogRead(A14);
+  //   int right_angle = analogRead(A13);
   //   delay(200);
   //     // SerialCom->println((left_middle + right_middle)/2);
-  //       SerialCom->print(left_middle);
+  //       SerialCom->print(left_angle);
   //       SerialCom->print(", ");
-  //       SerialCom->print(right_middle);
-  //       SerialCom->print(", error: ");
-  //       SerialCom->println(abs(right_middle - left_middle));
+  //       SerialCom->println(right_angle);
+       
         
   // }
 
@@ -293,11 +298,6 @@ void loop(void)  //main loop
   stop();
   FanOn();
 
-  
-
-  if (fanCount == 2){
-  
-  }
   while(1){};
 }
 void backUp(float seconds){
@@ -328,14 +328,14 @@ void FanOn(){
 void findFire() {
   SerialCom->println("here");
    // Take reading from PTs
-  int left_angle = analogRead(A14);
+  int left_angle = analogRead(A14) - 20;
   int right_angle = analogRead(A13);
   int left_middle = analogRead(A8);
   int right_middle = analogRead(A10);
   int error = left_middle - right_middle;
  
 
-  speed_val = 100; // Slow for now
+  speed_val = 150; // Slow for now
 
   
   // while(1) {
@@ -354,7 +354,7 @@ void findFire() {
       right_middle = analogRead(A10);
       error = left_middle - right_middle;
       
-    } while (abs(error) > 5 || left_middle < 40 || right_middle < 40); 
+    } while (abs(error) > 10 || left_middle < 40 || right_middle < 40); 
     stop();
   } else {
     cw();
@@ -363,7 +363,7 @@ void findFire() {
       right_middle = analogRead(A10);
       error = left_middle - right_middle;
 
-    } while (abs(error) > 5 || left_middle < 40 || right_middle < 40); 
+    } while (abs(error) > 10 || left_middle < 40 || right_middle < 40); 
     stop();
   }
 
@@ -372,6 +372,7 @@ void findFire() {
   leftShort = sL.read();
   rightLong = lR.read();
   leftLong = lL.read();
+  speed_val = 100;
 }
 
 void turnToLight(){
@@ -390,13 +391,13 @@ void turnToLight(){
 }
 
 void strafeRight(){
-  currentStrafe = millis();
+  State state = STRAFERIGHT;
+  int rightSenseDist = 12;
+  rightDirectionFlag = 1;
+  leftDirectionFlag = 0;
+  nonStrafeCount = 0;
 
-  if ((currentStrafe - lastStrafe) < strafeThresh) {
-    longStrafe ++;
-  } else{
-    longStrafe = 0;
-  }
+
   
   int count_dist = 35;
   int count = 0;
@@ -406,8 +407,10 @@ void strafeRight(){
   
    do {
     // SerialCom->println(count);
-    if(rightShort < 14){
+    if(rightShort < rightSenseDist){
       exit = 1;
+      control(0, 0, 0, state);
+      rightDirectionFlag = 0;
     }
     US = HC_SR04_range();
     if (US < 3) {
@@ -417,23 +420,28 @@ void strafeRight(){
     leftShort = sL.read();
     rightLong = lR.read();
     leftLong = lL.read();
-    State state = STRAFERIGHT;
+    
     rightShort = analogRead(A4);
     leftShort = analogRead(A5);
     // delay(200);
     ultraSonic = HC_SR04_range();
     // SerialCom->println("right");
-    control(0, 1, 0, state);
+    if(exit == 0){
+      control(0, 1, 0, state);
+    }
+    
     
     if(rightLong > 15 & leftLong > 15 & ultraSonic > 10){
-      if(longStrafe >= 2){
-        count_dist = 80;
-      } else{
         count_dist = 35;
-      }
       while(count<count_dist){
         control(0, 1, 0, state);
         count ++;
+         if(rightShort < rightSenseDist){
+            stop();
+            count = count_dist;
+            rightDirectionFlag = 0;
+         }
+
       }
       exit = 1;
     }
@@ -443,18 +451,15 @@ void strafeRight(){
     // If using middle PTs, need to recenter on fire
     findFire();
 
-    lastStrafe = millis();
+    
     
 }
 
 void strafeLeft(){
-  currentStrafe = millis();
 
-  if ((currentStrafe - lastStrafe) < strafeThresh) {
-    longStrafe ++;
-  } else{
-    longStrafe = 0;
-  }
+  State state = STRAFELEFT;
+  int leftSenseDist = 13;
+  nonStrafeCount = 0;
 
   int count_dist = 35;
   int count = 0;
@@ -462,8 +467,10 @@ void strafeLeft(){
   power_lim = 400;
   float US = HC_SR04_range();
    do {
-    if(leftShort < 14){
+    if(leftShort < leftSenseDist){
       exit = 1;
+      control(0, 0, 0, state);
+      leftDirectionFlag = 0;
     }
     US = HC_SR04_range();
     if (US < 3) {
@@ -475,19 +482,22 @@ void strafeLeft(){
     leftShort = sL.read();
     rightLong = lR.read();
     leftLong = lL.read();
-    State state = STRAFELEFT;
+    
     // delay(200);
     ultraSonic = HC_SR04_range();
-    control(0, 1, 0, state);
+    if(exit == 0){
+      control(0, 1, 0, state);
+    }
     if(rightLong > 15 & leftLong > 15 & ultraSonic > 10){
-      if(longStrafe >= 2){
-        count_dist = 80;
-      } else{
-        count_dist = 35;
-      }
+      count_dist = 35;
       while(count<count_dist){
         control(0, 1, 0, state);
         count ++;
+        if(leftShort < leftSenseDist){
+            stop();
+            count = count_dist;
+            leftDirectionFlag = 0;
+         }
       }
       exit = 1;
     }
@@ -497,14 +507,17 @@ void strafeLeft(){
     // If using middle PTs, need to recenter on fire
     power_lim = 300;
     findFire();
-
-    lastStrafe = millis();
     
 }
 
 void driveToLight(){
+ki_x = 0;
+float lastTime = 0; // Needs to be above threshold for first strafe
+float currentTime = 0;
+float TimeThresh = 700;
 
-  
+
+
   left_pin = 8;
   right_pin = 10;
   int left_middle = 999;
@@ -538,32 +551,49 @@ void driveToLight(){
         // SerialCom->print(turn_error);
         // SerialCom->print(", ");
         // SerialCom->println(reading_middle);
+
+
+        nonStrafeCount = nonStrafeCount + 1;
+
+        if(nonStrafeCount > 50){
+          leftDirectionFlag = 1;
+          rightDirectionFlag = 1;
+          nonStrafeCount = 0;
+        }
+        if(leftShort < 12){
+          leftDirectionFlag = 0;
+
+        }
+        if(rightShort < 12){
+          rightDirectionFlag = 0;
+        }
+
         
 
         // light too far so must be obstacle
         if (((analogRead(8) + analogRead(10))/2) < 750){ // This condition probs off
-           if (ultraSonic < 5 || rightLong < 14 || leftLong < 14 ) {
+           if (ultraSonic < 5 || rightLong < 17 || leftLong < 17 ) {
             backUp(0.5);
           } 
           
           // detect object on right ir sensor
-          else if(rightLong < 25){
+          else if(rightLong < 27){
             longStrafe = 0;
-            if(leftShort > 16){
+            if(leftDirectionFlag == 1){
               strafeLeft();
-            }else if(rightShort > 16){
+            }else if(rightDirectionFlag == 1){
               strafeRight();
             } else{
               backUp(1);
             }
           }
           // detect object on left IR sesnor
-          else if(leftLong < 25){
+          else if(leftLong < 27){
             longStrafe = 0;
-            if(rightShort > 16){
-              strafeRight();
-            }else if(leftShort > 16){
+            if(leftDirectionFlag == 1){
               strafeLeft();
+            }else if(rightDirectionFlag == 1){
+              strafeRight();
             } else{
               backUp(1);
             }
@@ -571,11 +601,11 @@ void driveToLight(){
          
           else if(ultraSonic < 14){
             longStrafe = 0;
-           if(rightShort > 16){
-              strafeRight();
-            }else if(leftShort > 16){
+            if(leftDirectionFlag == 1){
               strafeLeft();
-            }else{
+            }else if(rightDirectionFlag == 1){
+              strafeRight();
+            } else{
               backUp(1);
             }
         }
@@ -594,7 +624,8 @@ void driveToLight(){
 }
 
 void driveToLightClose() {
-
+  ki_x = 0.1;
+  kp_x = 16;
 
   left_pin = 8;
   right_pin = 10;
@@ -608,14 +639,14 @@ void driveToLightClose() {
         reading_right = analogRead(right_pin);
         turn_error = reading_left - reading_right;
         desiredAngle = turn_error;
-        kp_x = 24.5;
+        
         // SerialCom->println(turn_error);
         // SerialCom->print(", ");
         // SerialCom->println(reading_middle);
         control(1, 0, 1, state);
 
 
-      } while (Distance > 5);
+      } while (Distance > 4);
   stop();
 }
 
@@ -651,143 +682,7 @@ void turnTo(float Angle) {
   stop();
 }
 
-// charlies magnum XL func
-void findCorner() {
 
-  cw();  // Rotate cw
-
-  float step = 0.5;
-  // float lastReading = HC_SR04_range();
-
-  while (currentAngle <= 360) {
-    // serialOutput(0,0,currentAngle);
-    // delayMicroseconds(3500); // Time (ish) of serialOutput (seems to work)
-    // Delay needs to be the right size to fill the vector
-
-    int currentReading = HC_SR04_range();
-    updateAngle();
-    if ((currentAngle - step) > 0.5) {  //&& abs(lastReading - currentReading) < 50
-      boxMap.insert_pair(currentAngle, currentReading);
-      step += 1;
-      serialOutput(0, currentReading, currentAngle);
-    }
-  }
-  stop();
-  delay(200);
-  updateAngle();
-
-
-
-
-  // get indexs of of walls
-  size_t smallest_dist_index = boxMap.get_index_of_smallest_distance();
-  size_t index90 = boxMap.find_angle_offset_from_index(smallest_dist_index, 90);
-  size_t index180 = boxMap.find_angle_offset_from_index(smallest_dist_index, 180);
-  size_t index270 = boxMap.find_angle_offset_from_index(smallest_dist_index, 270);
-
-  // // get distances
-  int smallest_dist = boxMap.get_distance(smallest_dist_index);
-  int dist90 = boxMap.get_distance(index90);
-  int dist180 = boxMap.get_distance(index180);
-  int dist270 = boxMap.get_distance(index270);
-
-  int smallAngle = boxMap.get_angle(smallest_dist_index);
-  int angle90 = boxMap.get_angle(index90);
-  int angle180 = boxMap.get_angle(index180);
-  int angle270 = boxMap.get_angle(index270);
-
-  int boxLength1 = smallest_dist + dist180;
-  int boxLength2 = dist90 + dist270;
-
-  // ///SERIALLLLLLLLLL CHECKSSSSSSSSSSSSSS////////////////////////////////
-
-  // serialOutput(0, smallest_dist, smallAngle);
-  // serialOutput(0, dist90, angle90);
-  // serialOutput(0, dist180, angle180);
-  // serialOutput(0, dist270, angle270);
-
-  int turn_flag = -1;
-  // find the long side of box and turn towards
-  if (boxLength1 < boxLength2) {
-    turnTo(smallAngle);
-    turn_flag = 1;
-  } else {
-    turn_flag = 0;
-    if (dist90 < dist270) {
-      turnTo(angle90);
-    } else {
-      turnTo(angle270);
-    }
-  }
-
-  currentAngle = 0;
-
-  //zero angle against wall
-  controlReset();
-  accel_start_time = 3.5;
-  do {
-    State state = NEXTLANE;
-    updateAngle();
-    control(0, 1, 1, state);
-  } while (abs(error_y) > 1); 
-  left_front_motor.writeMicroseconds(1500 + 400);
-  left_rear_motor.writeMicroseconds(1500 - 400);
-  right_rear_motor.writeMicroseconds(1500 - 500);
-  right_front_motor.writeMicroseconds(1500 + 400);
-  delay(200);
-  left_front_motor.writeMicroseconds(1500 + 400);
-  left_rear_motor.writeMicroseconds(1500 - 400);
-  right_rear_motor.writeMicroseconds(1500 - 0);
-  right_front_motor.writeMicroseconds(1500 + 0);
-  delay(200);
-  left_front_motor.writeMicroseconds(1500 + 200);
-  left_rear_motor.writeMicroseconds(1500 - 200);
-  right_rear_motor.writeMicroseconds(1500 - 0);
-  right_front_motor.writeMicroseconds(1500 + 0);
-  delay(100);
-    left_front_motor.writeMicroseconds(1500 + 100);
-  left_rear_motor.writeMicroseconds(1500 - 100);
-  right_rear_motor.writeMicroseconds(1500 - 0);
-  right_front_motor.writeMicroseconds(1500 + 0);
-  delay(100);
-  stop();
-  currentAngle = -2;
-  delay(300);
-  
-  // figuire out and go to closest wall on X axis
-  controlReset();
-  if (dist90 > dist270 && turn_flag == 1) {
-    do {
-      State state = TOWALL;
-      updateAngle();
-      control(1, 1, 1, state);
-    } while (abs(error_x) > 1);
-    stop();
-  } else if (dist90 < dist270 && turn_flag == 1) {
-    do {
-      State state = AWAYWALL;
-      updateAngle();
-      control(1, 1, 1, state);
-    } while (abs(error_x) > 1);
-    stop();
-  } else if (dist90 < dist270 && turn_flag == 0) {
-    do {
-      State state = TOWALL;
-      updateAngle();
-      control(1, 1, 1, state);
-    } while (abs(error_x) > 1);
-    stop();
-  } else {
-    do {
-      State state = AWAYWALL;
-      updateAngle();
-      control(1, 1, 1, state);
-    } while (abs(error_x) > 1);
-    stop();
-  }
-
-  stop();
-}
 
 boolean is_battery_voltage_OK() {
   static byte Low_voltage_counter;
@@ -898,122 +793,7 @@ void controlReset() {
   accel_start_time = millis();
 }
 
-void plow(bool direction) {
-  // serialOutput(0,0,HC_SR04_range());
-  //delay(3000);
 
-  // move foward first
-  if (direction) {
-    for (int i = 0; i < 10; i += 2) {
-      
-      current_lane = i;
-    
-      controlReset();
-      accel_start_time = 3.5;
-      do {
-        State state = NEXTLANE;
-        updateAngle();
-        control(0, 1, 1, state);
-
-      } while (abs(error_y) > 1);
-
-      //GET Y START DIST
-      mapping[current_lane][0] = HC_SR04_range();
-
-      currentAngle -= 1;
-
-      controlReset();
-      do {
-        State state = TOWALL;
-        updateAngle();
-        control(1, 1, 1, state);
-      } while (abs(error_x) > 1);
-
-      //GET Y END DIST
-      mapping[current_lane][1] = HC_SR04_range();
-      //KNOWING MAX X IS 2000CM, INTERPOLATE NUM POINTS (LOOK AT SOFTWARE BOXES) BETWEEN YSTART AND Y END
-      //OUTPUT LANE NUMBER AND ^^^ DATA
-
-      current_lane = i + 1;
-     
-      controlReset();
-      accel_start_time = 3.5;
-      do {
-        State state = NEXTLANE;
-        updateAngle();
-        control(0, 1, 1, state);
-      } while (abs(error_y) > 1);
-
-      //GET Y START DIST
-      mapping[current_lane][0] = HC_SR04_range();
-
-      currentAngle -= 1;  //correct for drift
-
-      controlReset();
-      do {
-        State state = AWAYWALL;
-        updateAngle();
-        control(1, 1, 1, state);
-      } while (abs(error_x) > 1);
-      //GET Y END DIST
-      mapping[current_lane][1] = HC_SR04_range();
-      //KNOWING MAX X IS 2000CM, INTERPOLATE NUM POINTS (LOOK AT SOFTWARE BOXES) BETWEEN YSTART AND Y END
-      //OUTPUT LANE NUMBER AND ^^^ DATA
-    }
-  } else {  //move back first
-    for (int i = 0; i < 10; i += 2) {
-      current_lane = i;
-
-      controlReset();
-      accel_start_time = 3.5;
-      do {
-        State state = NEXTLANE;
-        updateAngle();
-        control(0, 1, 1, state);
-
-      } while (abs(error_y) > 1);
-      mapping[current_lane][0] = HC_SR04_range();
-      //GET Y START DIST
-      currentAngle -= 1;
-
-      controlReset();
-      do {
-        State state = AWAYWALL;
-        updateAngle();
-        control(1, 1, 1, state);
-      } while (abs(error_x) > 1);
-
-      //GET Y END DIST
-      //KNOWING MAX X IS 2000CM, INTERPOLATE NUM POINTS (LOOK AT SOFTWARE BOXES) BETWEEN YSTART AND Y END
-      //OUTPUT LANE NUMBER AND ^^^ DATA
-      mapping[current_lane][1] = HC_SR04_range();
-      current_lane = i + 1;
-     
-      controlReset();
-      accel_start_time = 3.5;
-      do {
-        State state = NEXTLANE;
-        updateAngle();
-        control(0, 1, 1, state);
-      } while (abs(error_y) > 1);
-
-      //GET Y START DIST
-      mapping[current_lane][0] = HC_SR04_range();
-      currentAngle -= 1;  //correct for drift
-
-      controlReset();
-      do {
-        State state = TOWALL;
-        updateAngle();
-        control(1, 1, 1, state);
-      } while (abs(error_x) > 1);
-      mapping[current_lane][1] = HC_SR04_range();
-      //GET Y END DIST
-      //KNOWING MAX X IS 2000CM, INTERPOLATE NUM POINTS (LOOK AT SOFTWARE BOXES) BETWEEN YSTART AND Y END
-      //OUTPUT LANE NUMBER AND ^^^ DATA
-    }
-  }
-}
 
 void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
   // implement states for different control directions (to wall / away from wall
@@ -1083,7 +863,7 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
       error_z = desiredAngle;
       break;
     case DRIVETOLIGHTCLOSE:
-      error_x = Distance - 4.8;
+      error_x = Distance - 4.5;
       error_y =  0; // not actually
       error_z = desiredAngle/2;
       break;
@@ -1108,6 +888,14 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
     sum_error_z = 0;
   }
 
+   //ki_z
+  if (abs(error_x) < 6) {
+    sum_error_x += error_z;
+  }
+  else{
+    sum_error_x = 0;
+  }
+
   //kd_z
   // Calculate derivative term (rate of change of error)
   error_z_derivative = error_z - previous_error_z;
@@ -1119,7 +907,7 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
 
   // calc control efforts
   control_effort_array[0][0] = (toggle_x)
-                                 ? error_x * kp_x
+                                 ? error_x * kp_x + sum_error_x * ki_x
                                  : 0;
   control_effort_array[1][0] = (toggle_y)
                                  ? error_y * kp_y
