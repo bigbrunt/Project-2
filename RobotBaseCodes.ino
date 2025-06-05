@@ -265,7 +265,13 @@ void loop(void)  //main loop
   //     SerialCom->println(right_middle);
 
   // }
+  // delay(1000);
+  // FanOn();
+  // delay(2000);
+  // SerialCom->println("MOVED");
+  // FanOn();
 
+  // while(1);
 
   findFire();
 
@@ -278,10 +284,11 @@ void loop(void)  //main loop
   SerialCom->println("2");
   stop();
   FanOn();
-
-
-
   backUp(0.5);
+
+
+
+ 
 
   
   PT_flag = 0;
@@ -294,9 +301,11 @@ void loop(void)  //main loop
   driveToLight();
   SerialCom->println("5");
   driveToLightClose();
-  SerialCom->println("6");
   stop();
+  SerialCom->println("6");
+  
   FanOn();
+
 
   while(1){};
 }
@@ -314,6 +323,7 @@ void FanOn(){
   int right_middle = analogRead(A10);
 
   digitalWrite(FanPin, HIGH);
+  delay(3000);
   while((left_middle + right_middle)/2 > 500){
     left_middle = analogRead(A8);
     right_middle = analogRead(A10);
@@ -354,7 +364,9 @@ void findFire() {
       right_middle = analogRead(A10);
       error = left_middle - right_middle;
       
-    } while (abs(error) > 10 || left_middle < 40 || right_middle < 40); 
+    // } while (abs(error) > 10 || left_middle < 40 || right_middle < 40); // for lights far away
+    } while (abs(error) > 10 || left_middle < 60 || right_middle < 60); //for mid range
+    // } while (abs(error) > 10 || left_middle < 80 || right_middle < 80); //for lights close
     stop();
   } else {
     cw();
@@ -363,7 +375,9 @@ void findFire() {
       right_middle = analogRead(A10);
       error = left_middle - right_middle;
 
-    } while (abs(error) > 10 || left_middle < 40 || right_middle < 40); 
+    // } while (abs(error) > 10 || left_middle < 40 || right_middle < 40); // for lights far away
+    } while (abs(error) > 10 || left_middle < 60 || right_middle < 60); //for mid range
+    // } while (abs(error) > 10 || left_middle < 80 || right_middle < 80); //for lights close
     stop();
   }
 
@@ -624,8 +638,8 @@ float TimeThresh = 700;
 }
 
 void driveToLightClose() {
-  ki_x = 0.1;
-  kp_x = 16;
+  ki_x = 0.15;
+  kp_x = 16.5;
 
   left_pin = 8;
   right_pin = 10;
@@ -646,7 +660,7 @@ void driveToLightClose() {
         control(1, 0, 1, state);
 
 
-      } while (Distance > 4);
+      } while (Distance > 4.5);
   stop();
 }
 
@@ -865,7 +879,7 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
     case DRIVETOLIGHTCLOSE:
       error_x = Distance - 4.5;
       error_y =  0; // not actually
-      error_z = desiredAngle/2;
+      error_z = desiredAngle/3;
       break;
     case STRAFELEFT:
       error_x = 0;
@@ -889,7 +903,7 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
   }
 
    //ki_z
-  if (abs(error_x) < 6) {
+  if (abs(error_x) < 9) {
     sum_error_x += error_z;
   }
   else{
@@ -915,6 +929,9 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
   control_effort_array[2][0] = (toggle_z)
                                  ? error_z * kp_z + sum_error_z * ki_z + error_z_derivative * kd_z  // + sum_error_z * ki_z
                                  : 0;
+
+// so that no ki makes go back
+control_effort_array[0][0] = constrain(control_effort_array[0][0],0,9999);
 
   calcSpeed();
   move();
