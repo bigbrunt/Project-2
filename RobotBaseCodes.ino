@@ -345,7 +345,7 @@ void findFire() {
   int error = left_middle - right_middle;
  
 
-  speed_val = 150; // Slow for now
+  speed_val = 200; // Slow for now
 
   
   // while(1) {
@@ -365,8 +365,8 @@ void findFire() {
       error = left_middle - right_middle;
       
     // } while (abs(error) > 10 || left_middle < 40 || right_middle < 40); // for lights far away
-    } while (abs(error) > 10 || left_middle < 60 || right_middle < 60); //for mid range
-    // } while (abs(error) > 10 || left_middle < 80 || right_middle < 80); //for lights close
+    // } while (abs(error) > 10 || left_middle < 60 || right_middle < 60); //for mid range
+    } while (abs(error) > 10 || left_middle < 80 || right_middle < 80); //for lights close
     stop();
   } else {
     cw();
@@ -376,8 +376,8 @@ void findFire() {
       error = left_middle - right_middle;
 
     // } while (abs(error) > 10 || left_middle < 40 || right_middle < 40); // for lights far away
-    } while (abs(error) > 10 || left_middle < 60 || right_middle < 60); //for mid range
-    // } while (abs(error) > 10 || left_middle < 80 || right_middle < 80); //for lights close
+    // } while (abs(error) > 10 || left_middle < 60 || right_middle < 60); //for mid range
+    } while (abs(error) > 10 || left_middle < 80 || right_middle < 80); //for lights close
     stop();
   }
 
@@ -407,9 +407,8 @@ void turnToLight(){
 void strafeRight(){
   State state = STRAFERIGHT;
   int rightSenseDist = 12;
-  rightDirectionFlag = 1;
-  leftDirectionFlag = 0;
   nonStrafeCount = 0;
+  nonStrafeCount = nonStrafeCount + 1;
 
 
   
@@ -474,6 +473,7 @@ void strafeLeft(){
   State state = STRAFELEFT;
   int leftSenseDist = 13;
   nonStrafeCount = 0;
+  nonStrafeCount = nonStrafeCount + 1;
 
   int count_dist = 35;
   int count = 0;
@@ -526,6 +526,7 @@ void strafeLeft(){
 
 void driveToLight(){
 ki_x = 0;
+kp_x = 1;
 float lastTime = 0; // Needs to be above threshold for first strafe
 float currentTime = 0;
 float TimeThresh = 700;
@@ -569,7 +570,7 @@ float TimeThresh = 700;
 
         nonStrafeCount = nonStrafeCount + 1;
 
-        if(nonStrafeCount > 50){
+        if(nonStrafeCount > 35){
           leftDirectionFlag = 1;
           rightDirectionFlag = 1;
           nonStrafeCount = 0;
@@ -586,12 +587,13 @@ float TimeThresh = 700;
 
         // light too far so must be obstacle
         if (((analogRead(8) + analogRead(10))/2) < 750){ // This condition probs off
-           if (ultraSonic < 5 || rightLong < 17 || leftLong < 17 ) {
+           if (ultraSonic < 9 || rightLong < 17 || leftLong < 17 ) {
+            stop();
             backUp(0.5);
           } 
           
           // detect object on right ir sensor
-          else if(rightLong < 27){
+          else if(rightLong < 28){
             longStrafe = 0;
             if(leftDirectionFlag == 1){
               strafeLeft();
@@ -602,7 +604,7 @@ float TimeThresh = 700;
             }
           }
           // detect object on left IR sesnor
-          else if(leftLong < 27){
+          else if(leftLong < 28){
             longStrafe = 0;
             if(leftDirectionFlag == 1){
               strafeLeft();
@@ -613,7 +615,7 @@ float TimeThresh = 700;
             }
           }
          
-          else if(ultraSonic < 14){
+          else if(ultraSonic < 18){
             longStrafe = 0;
             if(leftDirectionFlag == 1){
               strafeLeft();
@@ -902,9 +904,9 @@ void control(bool toggle_x, bool toggle_y, bool toggle_z, State run_state) {
     sum_error_z = 0;
   }
 
-   //ki_z
+   //ki_x
   if (abs(error_x) < 9) {
-    sum_error_x += error_z;
+    sum_error_x += error_x;
   }
   else{
     sum_error_x = 0;
